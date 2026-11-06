@@ -1,15 +1,15 @@
 {
   "name": "BrotatoOnline",
   "namespace": "six666",
-  "version_number": "6.6.6",
-  "description": "联机mod",
-  "website_url": "",
+  "version_number": "6.6.7",
+  "description": "Brotato Online 非官方修复版：暂停商店同步、失败重试与客户端自动进场。",
+  "website_url": "https://github.com/wushuangabao/BrotatoOnline",
   "dependencies": [],
   "extra": {
     "godot": {
-      "authors": ["six666"],
+      "authors": ["six666", "wushuangabao"],
       "tags": ["Utilities"],
-      "description_rich": "土豆兄弟远程联机mod。",
+      "description_rich": "土豆兄弟远程联机 Mod，非官方修复版 6.6.7。原作者：six666；修复维护：wushuangabao（2026-11-06）。修复暂停商店同步、重试重载去重，以及房主开打后客户端自动补同步进场。请勿与原版同时启用；所有玩家应使用同一修复版本。详见 CHANGELOG.md。",
       "optional_dependencies": [],
       "load_before": [],
       "incompatibilities": [],

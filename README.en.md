@@ -2,6 +2,11 @@
 
 [简体中文](README.md) | **English**
 
+> **Unofficial fixed release 6.6.7 (2026-11-06)**. Original author: six666. Fix maintainer: wushuangabao.
+> Fixes paused-shop synchronization, retry scene reloads, and automatic client catchup after the host starts. See [CHANGELOG.md](CHANGELOG.md).
+> This fork retains the internal ID `six666-BrotatoOnline`: enable either this release or the original, never both. All players should use the same fixed release.
+> [Original project](https://github.com/xx666zz/BrotatoOnline) · [Fixed source](https://github.com/wushuangabao/BrotatoOnline) · [GPL-3.0 license](LICENSE)
+
 > Remote and LAN multiplayer support for *Brotato*, using a host-led hybrid synchronization model.
 
 ![Brotato](https://img.shields.io/badge/Brotato-1.2.0.1-6c5ce7)
@@ -104,9 +109,10 @@ Current compatibility:
 
 | Component                       | Version    |
 | ------------------------------- | ---------- |
-| Brotato                         | `1.1.15.4` |
-| ModLoader                       | `6.2.0`    |
-| Brotato Online network protocol | `4.0.0`    |
+| Brotato (locally tested)         | `1.2.0.1` |
+| ModLoader                       | `6.3.0`    |
+| Brotato Online release          | `6.6.7`    |
+| Brotato Online network protocol | `6.3.0`    |
 | Maximum players                 | `4`        |
 
 ## Network Architecture

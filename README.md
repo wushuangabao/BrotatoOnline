@@ -2,6 +2,11 @@
 
 **简体中文** | [English](README.en.md)
 
+> **非官方修复版 6.6.7（2026-11-06）**。原作者：six666；修复维护：wushuangabao。
+> 本版修复暂停商店同步、失败重试场景重载，以及房主先开打后的客户端自动进场。完整说明见 [CHANGELOG.md](CHANGELOG.md)。
+> 与原版共享内部标识 `six666-BrotatoOnline`，请二选一启用，所有玩家使用同一修复版本。
+> [原项目](https://github.com/xx666zz/BrotatoOnline) · [修复版源码](https://github.com/wushuangabao/BrotatoOnline) · [GPL-3.0 许可证](LICENSE)
+
 > 为《Brotato》提供远程联机与局域网联机支持，采用Host主导的混合同步方案。
 
 ![Brotato](https://img.shields.io/badge/Brotato-1.2.0.1-6c5ce7)
@@ -104,9 +109,10 @@ six666-BrotatoOnline
 
 | 项目                 | 版本         |
 | ------------------ | ---------- |
-| Brotato            | `1.1.15.4` |
-| ModLoader          | `6.2.0`    |
-| Brotato Online网络协议 | `4.0.0`    |
+| Brotato（本地验证）  | `1.2.0.1` |
+| ModLoader          | `6.3.0`    |
+| Brotato Online 发布版本 | `6.6.7` |
+| Brotato Online网络协议 | `6.3.0`    |
 | 最大玩家数              | `4`        |
 
 ## 网络架构
