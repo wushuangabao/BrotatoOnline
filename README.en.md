@@ -2,8 +2,8 @@
 
 [简体中文](README.md) | **English**
 
-> **Unofficial fixed release 6.6.7 (2026-11-06)**. Original author: six666. Fix maintainer: wushuangabao.
-> Fixes paused-shop synchronization, retry scene reloads, and automatic client catchup after the host starts. See [CHANGELOG.md](CHANGELOG.md).
+> **Unofficial fixed release 6.6.8 (2026-11-08)**. Original author: six666. Fix maintainer: wushuangabao.
+> Adds fixes for stuck locked shop offers and purchased weapons missing from the client's inventory. Includes the paused-shop, retry reload, and automatic client catchup fixes. See [CHANGELOG.md](CHANGELOG.md) for details and validation scope.
 > This fork retains the internal ID `six666-BrotatoOnline`: enable either this release or the original, never both. All players should use the same fixed release.
 > [Original project](https://github.com/xx666zz/BrotatoOnline) · [Fixed source](https://github.com/wushuangabao/BrotatoOnline) · [GPL-3.0 license](LICENSE)
 
@@ -111,7 +111,7 @@ Current compatibility:
 | ------------------------------- | ---------- |
 | Brotato (locally tested)         | `1.2.0.1` |
 | ModLoader                       | `6.3.0`    |
-| Brotato Online release          | `6.6.7`    |
+| Brotato Online release          | `6.6.8`    |
 | Brotato Online network protocol | `6.3.0`    |
 | Maximum players                 | `4`        |
 

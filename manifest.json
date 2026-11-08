@@ -1,15 +1,15 @@
 {
   "name": "BrotatoOnline",
   "namespace": "six666",
-  "version_number": "6.6.7",
-  "description": "Brotato Online 非官方修复版：暂停商店同步、失败重试与客户端自动进场。",
+  "version_number": "6.6.8",
+  "description": "Brotato Online 非官方修复版：商店锁定与购买同步、暂停商店同步、失败重试与客户端自动进场。",
   "website_url": "https://github.com/wushuangabao/BrotatoOnline",
   "dependencies": [],
   "extra": {
     "godot": {
       "authors": ["six666", "wushuangabao"],
       "tags": ["Utilities"],
-      "description_rich": "土豆兄弟远程联机 Mod，非官方修复版 6.6.7。原作者：six666；修复维护：wushuangabao（2026-11-06）。修复暂停商店同步、重试重载去重，以及房主开打后客户端自动补同步进场。请勿与原版同时启用；所有玩家应使用同一修复版本。详见 CHANGELOG.md。",
+      "description_rich": "土豆兄弟远程联机 Mod，非官方修复版 6.6.8。原作者：six666；修复维护：wushuangabao（2026-11-08）。新增修复商店纠正消息被缓存跳过导致商品无法解锁或购买，以及较早的合成结果覆盖客户端已购武器的问题；购买状态不一致时自动恢复，并防止旧消息回滚恢复结果。包含 6.6.7 的暂停商店同步、失败重试和客户端自动进场修复。请勿与原版同时启用；房主和所有客户端均应更新至同一修复版本。详见 CHANGELOG.md。",
       "optional_dependencies": [],
       "load_before": [],
       "incompatibilities": [],

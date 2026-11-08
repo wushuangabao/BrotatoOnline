@@ -2,8 +2,8 @@
 
 **简体中文** | [English](README.en.md)
 
-> **非官方修复版 6.6.7（2026-11-06）**。原作者：six666；修复维护：wushuangabao。
-> 本版修复暂停商店同步、失败重试场景重载，以及房主先开打后的客户端自动进场。完整说明见 [CHANGELOG.md](CHANGELOG.md)。
+> **非官方修复版 6.6.8（2026-11-08）**。原作者：six666；修复维护：wushuangabao。
+> 新增修复商店商品锁定后无法恢复操作，以及客户端购买武器后武器栏不同步的问题；保留暂停商店同步、失败重试和客户端自动进场修复。完整说明和验证范围见 [CHANGELOG.md](CHANGELOG.md)。
 > 与原版共享内部标识 `six666-BrotatoOnline`，请二选一启用，所有玩家使用同一修复版本。
 > [原项目](https://github.com/xx666zz/BrotatoOnline) · [修复版源码](https://github.com/wushuangabao/BrotatoOnline) · [GPL-3.0 许可证](LICENSE)
 
@@ -111,7 +111,7 @@ six666-BrotatoOnline
 | ------------------ | ---------- |
 | Brotato（本地验证）  | `1.2.0.1` |
 | ModLoader          | `6.3.0`    |
-| Brotato Online 发布版本 | `6.6.7` |
+| Brotato Online 发布版本 | `6.6.8` |
 | Brotato Online网络协议 | `6.3.0`    |
 | 最大玩家数              | `4`        |
 
