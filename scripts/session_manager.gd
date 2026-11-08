@@ -2802,6 +2802,12 @@ func _handle_run_page_action_sync(from_steam_id: String, message: Dictionary) ->
 		if incoming_action_type == "shop_buy":
 			_route_host_shop_buy_result(from_steam_id, message, corrected_state)
 			return
+		if incoming_action_type == "shop_purchase_repair":
+			# A receipt mismatch repairs only the requesting player's local prediction.
+			if typeof(corrected_state) == TYPE_DICTIONARY and not corrected_state.empty():
+				message["host_state_after"] = corrected_state
+				_send_p2p_json(from_steam_id, message, true)
+			return
 		if typeof(corrected_state) == TYPE_DICTIONARY and not corrected_state.empty():
 			# resolved_item is only an internal Host helper for building state_after.
 			# Do not echo it back, or a tiny action can become a large packet.
@@ -2840,6 +2846,8 @@ func _route_host_shop_buy_result(from_steam_id: String, request: Dictionary, res
 		acknowledgement["shop_buy_result"] = "success"
 		acknowledgement["shop_buy_event"] = false
 		acknowledgement["host_applied"] = true
+		if result.has("shop_purchase_receipt"):
+			acknowledgement["shop_purchase_receipt"] = result.shop_purchase_receipt
 		_send_p2p_json(from_steam_id, acknowledgement, true)
 
 		var purchase_event = base.duplicate(true)

@@ -1,13 +1,22 @@
 param(
     [Parameter(Mandatory = $true)][string]$ProjectPath,
     [string]$Godot = 'D:\GodotSteam\godotsteam.36.editor.windows.64.exe',
-    [ValidateSet('reload', 'recovery')][string]$Suite = 'reload'
+    [ValidateSet('reload', 'recovery', 'shop')][string]$Suite = 'reload'
 )
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path -LiteralPath $ProjectPath).Path
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$output = Join-Path (Split-Path -Parent $project) "logs\retry-reload-regression\$stamp"
+$output = Join-Path (Split-Path -Parent $project) "logs\retry-reload-regression\$stamp-$Suite"
 New-Item -ItemType Directory -Force -Path "$output\userdata\Brotato\logs" | Out-Null
+if ($Suite -eq 'shop') {
+    $modList = @{}
+    foreach ($manifestFile in Get-ChildItem -LiteralPath (Join-Path $project 'mods-unpacked') -Filter manifest.json -Recurse -File) {
+        $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw | ConvertFrom-Json
+        $modId = "$($manifest.namespace)-$($manifest.name)"
+        $modList[$modId] = @{ is_active = ($modId -eq 'six666-BrotatoOnline'); zip_path = '' }
+    }
+    @{ current_profile = 'default'; profiles = @{ default = @{ mod_list = $modList } } } | ConvertTo-Json -Depth 8 | Set-Content "$output\userdata\Brotato\mod_user_profiles.json" -Encoding utf8
+}
 $sourceScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts\menu_sync_manager.gd'
 $installedScript = Join-Path $project 'mods-unpacked\six666-BrotatoOnline\scripts\menu_sync_manager.gd'
 $sourceHash = (Get-FileHash -LiteralPath $sourceScript).Hash
@@ -22,6 +31,7 @@ if ($sessionHash -ne (Get-FileHash -LiteralPath $sessionInstalled).Hash) { throw
 "session_manager.gd SHA256=$sessionHash" | Add-Content "$output\source.txt"
 $scene = if ($Suite -eq 'recovery') { 'start_recovery' } else { 'retry_reload' }
 $expectedResult = if ($Suite -eq 'recovery') { 'START_RECOVERY_RESULT: 18 checks, 0 failures' } else { 'RETRY_RELOAD_RESULT: 10 checks, 0 failures' }
+if ($Suite -eq 'shop') { $scene = 'shop_reconciliation'; $expectedResult = 'SHOP_RECONCILIATION_RESULT: 40 checks, 0 failures' }
 $previousAppData = $env:APPDATA
 $previousTestDir = $env:BROTATO_TEST_DIR
 try {
@@ -38,7 +48,7 @@ if (-not $process.WaitForExit(55000)) {
     throw "Regression timed out: $output"
 }
 $process.Refresh()
-$result = Get-Content "$output\stdout.log" | Select-String 'RETRY_RELOAD_|START_RECOVERY_'
+$result = Get-Content "$output\stdout.log" | Select-String 'RETRY_RELOAD_|START_RECOVERY_|SHOP_RECONCILIATION_'
 $result
 Write-Output "Evidence: $output"
 if ($process.ExitCode -ne 0 -or -not ($result -match $expectedResult) -or (Select-String "$output\stderr.log" -Pattern 'SCRIPT ERROR:|RETRY_RELOAD_FAIL:' -Quiet)) {

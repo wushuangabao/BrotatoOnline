@@ -147,6 +147,11 @@ var _shop_input_guard_instance_id = 0
 var _shop_input_guard_until_msec = 0
 var _shop_input_guard_wait_release = false
 var _client_shop_intercept_key = ""
+var _last_shop_purchase_receipt_by_player = {}
+var _pending_shop_purchase_repair_by_player = {}
+var _next_host_shop_state_revision = 1
+var _last_host_shop_state_revision_by_player = {}
+var _last_full_shop_repair_revision_by_player = {}
 var _pending_shop_states_from_host = []
 var _local_shop_go_pending_until_by_player = {}
 var _host_shop_go_intercept_key = {}
@@ -497,6 +502,10 @@ func _reset_run_page_runtime_state_for_game_start(clear_queued_actions: bool = t
 
 
 func reset_online_session_state(reason: String = "") -> void:
+	_last_full_shop_repair_revision_by_player.clear()
+	_last_host_shop_state_revision_by_player.clear()
+	_last_shop_purchase_receipt_by_player.clear()
+	_pending_shop_purchase_repair_by_player.clear()
 	_client_last_applied_game_scene_start_id = 0
 	_restore_local_content_configuration()
 	# Full per-room cleanup. This intentionally does not modify the player's real save data;
@@ -784,7 +793,11 @@ func receive_run_page_action_sync(from_steam_id: String, message: Dictionary, se
 	if action_id != "":
 		if _processed_run_page_action_ids.has(action_id):
 			return {}
-		if _is_stale_run_page_action(action_id):
+		# A chunked repair or purchase receipt can follow a later action's reply.
+		# Its state revision must decide whether to apply/recover it; dropping it
+		# here would lose the purchase check or leave the repair permanently pending.
+		var reconcile_late_shop_result = not _is_game_host() and (action_type == "shop_purchase_repair" or (action_type == "shop_buy" and message.has("shop_purchase_receipt")))
+		if _is_stale_run_page_action(action_id) and not reconcile_late_shop_result:
 			return {}
 		_processed_run_page_action_ids[action_id] = OS.get_ticks_msec()
 		_trim_processed_run_page_actions()
@@ -887,6 +900,10 @@ func receive_run_page_action_sync(from_steam_id: String, message: Dictionary, se
 			# then the existing shop_state application below replaces the random slots
 			# with the Host's authoritative sale items.
 			var reroll_state_after = message.get("host_shop_state_after", message.get("host_state_after", message.get("state_after", {})))
+			if typeof(reroll_state_after) == TYPE_DICTIONARY and _is_stale_shop_state(reroll_state_after):
+				_repair_uncovered_stale_shop_state(reroll_state_after)
+				_applying_remote_run_page_action = false
+				return {}
 			var host_applied_reroll = true
 			if typeof(reroll_state_after) == TYPE_DICTIONARY and reroll_state_after.has("host_applied"):
 				host_applied_reroll = bool(reroll_state_after.get("host_applied", true))
@@ -922,6 +939,7 @@ func receive_run_page_action_sync(from_steam_id: String, message: Dictionary, se
 			}
 			if applied:
 				_mark_host_shop_run_data_dirty(player_index)
+				result["shop_purchase_receipt"] = _build_shop_purchase_receipt(player_index, true)
 				if bool(message.get("steal", false)):
 					result["steal_extra_enemies_next_wave"] = _get_shop_steal_extra_enemies_next_wave(player_index)
 			else:
@@ -934,6 +952,16 @@ func receive_run_page_action_sync(from_steam_id: String, message: Dictionary, se
 					correction["host_applied"] = false
 				result["full_sync"] = correction
 			return result
+		if action_type == "shop_purchase_repair":
+			if int(message.get("current_wave", -1)) != RunData.current_wave:
+				return {}
+			var repair = _build_shop_player_state(player_index, _find_shop_node(), false, false)
+			if not repair.empty():
+				_append_forced_shop_run_data_repair_to_delta_state(repair, player_index, "shop_purchase_receipt_mismatch")
+				repair["force_shop_state_repair"] = true
+				repair["shop_purchase_receipt"] = _build_shop_purchase_receipt(player_index)
+				repair.shop_purchase_receipt["shop_state_revision"] = repair.shop_state_revision
+			return repair
 		if action_type == SHOP_CUSTOM_POPUP_BUTTON_ACTION:
 			# Third-party inventory popup buttons are replayed as local UI presses only.
 			# Do not attach a shop_state payload to this generic compatibility packet.
@@ -977,6 +1005,8 @@ func receive_run_page_action_sync(from_steam_id: String, message: Dictionary, se
 		return host_state
 
 	if action_type.begins_with("shop_"):
+		if action_type == "shop_purchase_repair":
+			_pending_shop_purchase_repair_by_player.erase(player_index)
 		if action_type == SHOP_CUSTOM_POPUP_BUTTON_ACTION:
 			return {}
 		if action_type == "shop_focus":
@@ -992,6 +1022,8 @@ func receive_run_page_action_sync(from_steam_id: String, message: Dictionary, se
 				_apply_or_queue_shop_states([shop_state_after], message)
 		if action_type in ["shop_combine_weapon", "shop_discard_weapon", "shop_meca_upgrade"]:
 			_close_shop_popup_for_player(_find_shop_node(), player_index, message)
+		if action_type == "shop_buy" and str(message.get("shop_buy_result", "")) == "success":
+			_request_shop_purchase_repair_if_needed(player_index, message.get("shop_purchase_receipt", {}))
 		return {}
 
 	var applied_any_state = false
@@ -1136,6 +1168,10 @@ func _debug_host_shop_focus_snapshot(shop: Node) -> void:
 
 
 func _reset_shop_state_diff_cache_base() -> void:
+	_last_full_shop_repair_revision_by_player.clear()
+	_last_host_shop_state_revision_by_player.clear()
+	_last_shop_purchase_receipt_by_player.clear()
+	_pending_shop_purchase_repair_by_player.clear()
 	# Client can receive the Host's first shop_state before CoopShop has finished
 	# entering the tree. Do not drop that pending payload during the transient
 	# no-shop-node frames, or the client keeps its locally generated random shop.
@@ -1181,6 +1217,10 @@ func _ensure_shop_state_diff_cache_for_instance(shop: Node) -> void:
 	var instance_id = int(shop.get_instance_id())
 	if _shop_state_cache_instance_id == instance_id:
 		return
+	_last_full_shop_repair_revision_by_player.clear()
+	_last_host_shop_state_revision_by_player.clear()
+	_last_shop_purchase_receipt_by_player.clear()
+	_pending_shop_purchase_repair_by_player.clear()
 	# A new CoopShop instance must reset applied/diff caches, but a Client may already
 	# have the Host's first full shop_state queued from menu_scene_state/run_page_action_sync.
 	# Keep that queue so it can overwrite the local vanilla RNG shop as soon as this
@@ -1983,6 +2023,91 @@ func _apply_client_local_shop_purchase(message: Dictionary, player_index: int) -
 	# reroll price, gold and button state. Rebuilding the full gear container here would
 	# re-walk every owned item and recreate the original high-item-count stall.
 	return applied
+
+
+func _take_shop_state_revision() -> int:
+	var revision = _next_host_shop_state_revision
+	_next_host_shop_state_revision += 1
+	return revision
+
+
+func _is_stale_shop_state(state: Dictionary) -> bool:
+	# Receipts and private repairs cover this client's own optimistic actions.
+	# Other players continue through the existing observer synchronization path.
+	if int(state.get("player_index", -1)) != _get_local_client_player_index():
+		return false
+	var revision = int(state.get("shop_state_revision", 0))
+	return revision > 0 and revision < int(_last_host_shop_state_revision_by_player.get(int(state.get("player_index", -1)), 0))
+
+
+func _repair_uncovered_stale_shop_state(state: Dictionary) -> void:
+	# A newer partial delta does not necessarily contain the fields in an older
+	# packet. Ignore that packet to avoid rollback, but recover the missing fields
+	# unless a full repair has already covered its revision.
+	var index = int(state.get("player_index", -1))
+	if int(state.get("shop_state_revision", 0)) > int(_last_full_shop_repair_revision_by_player.get(index, 0)):
+		_queue_shop_purchase_repair(index)
+
+
+func _build_shop_purchase_receipt(player_index: int, stamp_revision: bool = false) -> Dictionary:
+	# A compact receipt detects an earlier combine/discard/full snapshot overwriting
+	# a later optimistic buy. Do not send a full endless inventory on every purchase.
+	var inventory = {}
+	for kind in ["items", "weapons"]:
+		var keys = []
+		for data in RunData.players_data[player_index].get(kind):
+			if data != null:
+				keys.append(str(data.my_id) + ":" + str(data.tier) + ":" + str(data.is_cursed) + ":" + str(data.is_meca) + ":" + str(data.is_mutant))
+		keys.sort()
+		inventory[kind] = keys
+	var slots = []
+	var shop = _find_shop_node()
+	if _is_valid_shop_node(shop):
+		for card in shop._get_shop_items_container(player_index)._shop_items:
+			if not card.active or card.item_data == null:
+				slots.append("empty")
+			else:
+				slots.append(str(card.item_data.my_id) + ":" + str(card.locked) + ":" + str(card.wave_value) + ":" + str(card.value))
+	var receipt = {
+		"player_index": player_index,
+		"current_wave": RunData.current_wave,
+		"gold": RunData.get_player_gold(player_index),
+		"inventory_key": JSON.print(inventory, "", true).sha256_text(),
+		"slots_key": JSON.print(slots).sha256_text()
+	}
+	if stamp_revision:
+		receipt["shop_state_revision"] = _take_shop_state_revision()
+	return receipt
+
+
+func _request_shop_purchase_repair_if_needed(player_index: int, receipt: Dictionary) -> void:
+	if _is_game_host() or player_index < 0 or player_index >= RunData.get_player_count() or receipt.empty() or int(receipt.get("current_wave", -1)) != RunData.current_wave:
+		return
+	if not _is_valid_shop_node(_find_shop_node()) or _is_game_start_guard_active():
+		return
+	if _is_stale_shop_state(receipt):
+		_repair_uncovered_stale_shop_state(receipt)
+		return
+	var revision = int(receipt.get("shop_state_revision", 0))
+	if revision > 0:
+		_last_host_shop_state_revision_by_player[player_index] = revision
+	_last_shop_purchase_receipt_by_player[player_index] = receipt.duplicate(true)
+	var local = _build_shop_purchase_receipt(player_index)
+	if str(receipt.get("inventory_key", "")) == str(local.inventory_key) and str(receipt.get("slots_key", "")) == str(local.slots_key) and int(receipt.get("gold", -1)) == int(local.gold):
+		return
+	_queue_shop_purchase_repair(player_index)
+
+
+func _queue_shop_purchase_repair(player_index: int) -> void:
+	if _is_game_host() or player_index < 0 or player_index >= RunData.get_player_count() or not _is_valid_shop_node(_find_shop_node()) or _is_game_start_guard_active():
+		return
+	if _pending_shop_purchase_repair_by_player.has(player_index):
+		return
+	_pending_shop_purchase_repair_by_player[player_index] = true
+	_queue_local_run_page_action({
+		"msg_type": "run_page_action_sync", "action_type": "shop_purchase_repair",
+		"screen": "shop", "player_index": player_index, "current_wave": RunData.current_wave
+	})
 
 
 func _build_client_shop_action_outbound_message(message: Dictionary) -> Dictionary:
@@ -2816,6 +2941,7 @@ func _build_shop_action_delta_state_base(player_index: int, action_type: String,
 		return {}
 	if not applied and not action_type in ["shop_reroll", "shop_dismantle"]:
 		var correction = _build_shop_player_state(player_index, shop, true)
+		correction["force_shop_state_repair"] = true
 		correction["full_snapshot"] = true
 		correction["delta_action"] = action_type
 		correction["host_applied"] = false
@@ -3230,9 +3356,10 @@ func _apply_shop_player_state_to_ui_base(shop: Node, state: Dictionary) -> bool:
 		return _apply_shop_delta_state_to_ui(shop, state)
 
 	var force_run_data_repair = bool(state.get("force_run_data_repair", false))
+	var force_shop_state_repair = force_run_data_repair or bool(state.get("force_shop_state_repair", false))
 	var incoming_state_key = _build_shop_state_prediction_key_from_state(state)
 	var applied_key = str(_last_applied_shop_state_key_by_player.get(player_index, ""))
-	if not force_run_data_repair and incoming_state_key != "" and incoming_state_key == applied_key:
+	if not force_shop_state_repair and incoming_state_key != "" and incoming_state_key == applied_key:
 		# Accept duplicate authoritative states without rebuilding ShopItem/gear UI.
 		# A failed optimistic purchase is explicitly marked force_run_data_repair and
 		# must bypass this shortcut even when it restores the exact entry-shop state.
@@ -3276,7 +3403,7 @@ func _apply_shop_player_state_to_ui_base(shop: Node, state: Dictionary) -> bool:
 		item_entries = []
 	var shop_slots_key = _build_shop_slots_state_key_from_entries(item_entries)
 	var shop_player_key = str(shop.get_instance_id()) + ":" + str(player_index)
-	var shop_slots_changed = shop_slots_key == "" or str(_last_applied_shop_slots_key_by_player.get(shop_player_key, "")) != shop_slots_key
+	var shop_slots_changed = force_shop_state_repair or shop_slots_key == "" or str(_last_applied_shop_slots_key_by_player.get(shop_player_key, "")) != shop_slots_key
 	if shop_slots_changed:
 		_replace_client_locked_shop_items_from_host_entries(player_index, item_entries)
 		var player_shop_items = _resolve_shop_state_active_items(item_entries, player_index)
@@ -4255,6 +4382,13 @@ func _build_all_shop_player_states_for_menu_scene() -> Array:
 
 
 func _build_shop_player_state(player_index: int, shop: Node = null, force_run_data_full: bool = false, include_run_data_sync: bool = true) -> Dictionary:
+	var state = _build_shop_player_state_unstamped(player_index, shop, force_run_data_full, include_run_data_sync)
+	if _is_game_host() and not state.empty():
+		state["shop_state_revision"] = _take_shop_state_revision()
+	return state
+
+
+func _build_shop_player_state_unstamped(player_index: int, shop: Node = null, force_run_data_full: bool = false, include_run_data_sync: bool = true) -> Dictionary:
 	if shop == null:
 		shop = _find_shop_node()
 	if not _is_valid_shop_node(shop):
@@ -6674,6 +6808,10 @@ func _queue_local_run_page_action(message: Dictionary) -> void:
 	if typeof(message) != TYPE_DICTIONARY or message.empty():
 		return
 	var action_type = str(message.get("action_type", ""))
+	if not _is_game_host() and action_type.begins_with("shop_") and not action_type in ["shop_purchase_repair", "shop_focus"]:
+		# A new local operation supersedes the previous purchase receipt. Delayed
+		# earlier state packets are still checked against the latest confirmed buy.
+		_last_shop_purchase_receipt_by_player.erase(int(message.get("player_index", -1)))
 	if _is_game_start_guard_active() and _is_guarded_run_page_action(action_type):
 		return
 	_ensure_run_page_action_identity(message)
@@ -8088,6 +8226,7 @@ func _is_duplicate_mutating_run_page_action(message: Dictionary, origin_steam_id
 
 func _is_mutating_run_page_action(action_type: String) -> bool:
 	return [
+		"shop_purchase_repair",
 		"upgrade_select",
 		"upgrade_reroll",
 		"item_box_take",
@@ -11892,6 +12031,13 @@ func _build_live_inventory_id_key(data) -> String:
 
 
 func _build_shop_action_delta_state(index: int, action: String, message: Dictionary = {}, applied: bool = true) -> Dictionary:
+	var state = _build_shop_action_delta_state_unstamped(index, action, message, applied)
+	if _is_game_host() and not state.empty():
+		state["shop_state_revision"] = _take_shop_state_revision()
+	return state
+
+
+func _build_shop_action_delta_state_unstamped(index: int, action: String, message: Dictionary = {}, applied: bool = true) -> Dictionary:
 	if action == "shop_meca_preview":
 		# A preview changes no inventory. Keep its response independent of backpack size.
 		var state = {"mode": "shop", "shop_delta": true, "delta_action": action, "host_applied": applied, "player_index": index, "meca_parts": int(RunData.get_player_meca_parts(index))}
@@ -11913,9 +12059,26 @@ func _build_shop_action_delta_state(index: int, action: String, message: Diction
 
 
 func _apply_shop_player_state_to_ui(shop: Node, state: Dictionary) -> bool:
+	if _is_stale_shop_state(state):
+		_repair_uncovered_stale_shop_state(state)
+		return true
 	var applied = _apply_shop_player_state_to_ui_base(shop, state)
 	if applied:
 		_get_dlc_shop_actions().apply_client_state(shop, state)
+		var index = int(state.get("player_index", -1))
+		var revision = int(state.get("shop_state_revision", 0))
+		if revision > 0:
+			_last_host_shop_state_revision_by_player[index] = revision
+			if bool(state.get("force_run_data_repair", false)):
+				_last_full_shop_repair_revision_by_player[index] = revision
+		# A chunked older state can arrive AFTER the small purchase acknowledgement.
+		# Recheck on state application too, not just when the acknowledgement arrives.
+		if state.has("shop_purchase_receipt"):
+			# A repair supersedes the old receipt. Do not recursively request repairs
+			# if incompatible peer content cannot be reconstructed on this machine.
+			_last_shop_purchase_receipt_by_player[index] = state.shop_purchase_receipt.duplicate(true)
+		else:
+			_request_shop_purchase_repair_if_needed(index, _last_shop_purchase_receipt_by_player.get(index, {}))
 	return applied
 
 
