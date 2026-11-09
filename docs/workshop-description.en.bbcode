@@ -1,0 +1,65 @@
+[h1]Brotato Online Friends[/h1]
+
+An unofficial, independently maintained fork of Brotato Online by six666. It focuses on trusted multiplayer between friends, with more responsive client shops, synchronization fixes, and support for multiple local players on a client.
+
+[b]Original author:[/b] six666
+[b]Fork maintainer:[/b] wushuangabao
+[b]Version:[/b] 6.8.1
+[b]Mod ID:[/b] wushuangabao-BrotatoOnlineFriends
+
+[h2]What Is Different from the Original?[/h2]
+
+[list]
+[*][b]Immediate personal shop actions[/b]
+Clients execute their own purchases, rerolls, locks, weapon combinations, recycling, dismantling, and mechanical upgrades locally, then synchronize the results with the host and other players. This reduces delays caused by waiting for network confirmation.
+
+[*][b]Multiple local players per client[/b]
+Use keyboard/mouse plus controllers, or multiple controllers. Rooms support up to four players total, including one host player plus three client players, or two players on each side.
+
+[*][b]Complete personal-state handoff before combat[/b]
+Before starting a wave, the host collects equipment, items, effects, health, level/XP, materials, mechanical chips, and shop state. This helps prevent the last purchase or upgrade from being lost during the transition.
+[/list]
+
+The host still coordinates the shared battlefield and scene transitions. This fork is designed for cooperative play between trusted friends, rather than anti-cheat enforcement.
+
+[h2]Fixes in This Release and Included Earlier Fixes[/h2]
+
+[list]
+[*][b]6.8.1: Fixed skipped client wave settlement when the host reaches the shop first.[/b] Preserves local wave-end callbacks, step accounting and per-wave cleanup, while preventing duplicate settlement.
+[*][b]6.8.1: Added leftover-material ledger synchronization.[/b] Local two-process LAN checks cover delayed settlement, crates and upgrades, dinosaur eggs and mutations, endless harvesting decay and material conversion.
+[*]Fixed mechanical upgrades sometimes requiring repeated clicks.
+[*]Fixed the selected weapon changing when opening mechanical upgrades, and focus moving to the wrong slot after upgrading.
+[*]Prevented delayed or duplicate synchronization messages from undoing local actions or interfering with the current upgrade popup.
+[*]Includes fixes for locked shop offers becoming impossible to unlock or purchase, and purchased weapons missing from the client's weapon bar.
+[*]Includes fixes for host shop synchronization while paused and clients failing to enter combat after retrying a failed wave.
+[*]Supports automatic client entry when the host starts combat, including recovery for clients that enter late.
+[/list]
+
+[h2]Setup and Important Notes[/h2]
+
+[list]
+[*][b]Every player must use the same version.[/b]
+Version 6.8.1 uses network protocol 6.5.0 and cannot mix with the original Mod or older fixed releases.
+
+[*][b]Disable the original and older fixed releases.[/b]
+Do not enable this fork alongside a version using Mod ID six666-BrotatoOnline.
+
+[*][b]Adding local players on a client[/b]
+After joining a room, stay on character selection and hold the join button on each additional device for about 0.7 seconds. This is usually A/confirm on a controller or Space on a keyboard; follow the in-game prompt.
+
+[*][b]Joining restrictions and player limit[/b]
+Additional players can join only before the run starts. The room supports four players total. For keyboard/mouse plus controllers, select keyboard/mouse as the first player's online input device first.
+
+[*][b]Separate settings and compatibility[/b]
+This fork uses separate Mod settings and online identity storage. Previous data is not migrated automatically. Other Mods that depend on the original Mod ID may need updating.
+
+[*][b]Verification scope[/b]
+Automated verification covers independent local processes using LAN, including mechanical upgrades, shop-state handoff, retry, automatic battle entry, and multiple client players. Physical controllers, Steam multiplayer across computers, and Workshop subscription installation remain unverified.
+[/list]
+
+[h2]Credits and Source[/h2]
+
+Thanks to six666 and the original project's contributors. Original attribution is retained, and this fork is distributed under the GNU GPL v3 license.
+
+[url=https://github.com/xx666zz/BrotatoOnline]Original project[/url]
+[url=https://github.com/wushuangabao/BrotatoOnline/tree/feat/client-local-coop]Fork source[/url]

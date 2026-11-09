@@ -8822,6 +8822,11 @@ func _try_apply_pending_menu_scene_state() -> void:
 
 func _apply_menu_scene_state_from_host(state: Dictionary) -> bool:
 	var target_screen = str(state.get("screen", SCREEN_NONE))
+	if target_screen == SCREEN_SHOP and not _is_game_host():
+		var previous_scene = get_tree().current_scene
+		if is_instance_valid(previous_scene) and previous_scene.has_method("bo_ready_for_host_shop"):
+			if not previous_scene.bo_ready_for_host_shop():
+				return false
 	if target_screen == "" or target_screen == SCREEN_NONE:
 		return true
 
@@ -8988,6 +8993,8 @@ func _build_run_config_for_scene_sync(include_player_run_data: bool = true, held
 		"current_zone": int(RunData.current_zone),
 		"current_difficulty": int(RunData.current_difficulty),
 		"current_wave": int(RunData.current_wave),
+		"bonus_gold": int(RunData.bonus_gold),
+		"total_bonus_gold": int(RunData.total_bonus_gold),
 		"retries": int(RunData.retries),
 		"full_item_list_for_scene_sync": bool(force_full_held_items),
 		"zone_selected": int(ProgressData.settings.zone_selected),
@@ -9009,6 +9016,10 @@ func _build_run_config_for_scene_sync(include_player_run_data: bool = true, held
 
 
 func _apply_run_config_before_client_scene_change(config: Dictionary, target_screen: String) -> void:
+	if config.has("bonus_gold"):
+		RunData.set_bonus_gold(int(config.bonus_gold))
+	if config.has("total_bonus_gold"):
+		RunData.total_bonus_gold = int(config.total_bonus_gold)
 	var owned_shop_players = []
 	if target_screen == SCREEN_SHOP and int(config.get("current_wave", -1)) == RunData.current_wave and not str(config.get("run_config_source", "")) in ["player_removed", "retry_wave"]:
 		for index in RunData.get_player_count():

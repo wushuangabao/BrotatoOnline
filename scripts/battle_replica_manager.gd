@@ -744,7 +744,10 @@ func _commit_client_battle_cleanup() -> void:
 
 	var kind = _client_quiesce_kind
 	print("[BO][ENDWAVE][COMMIT] reason=", _client_quiesce_reason, " kind=", kind)
-	if kind == CLIENT_QUIESCE_KIND_WAVE_TIMEOUT and main.has_method("_on_WaveTimer_timeout"):
+	# A successful terminal snapshot can arrive before the local timer. Run the
+	# native wave-end effects before cleanup, not just cleanup/EndWaveTimer.
+	var successful_room_end = kind == CLIENT_QUIESCE_KIND_ROOM_CLEANUP and not _client_quiesce_wave_failed and not _client_quiesce_run_lost
+	if (kind == CLIENT_QUIESCE_KIND_WAVE_TIMEOUT or successful_room_end) and main.has_method("_on_WaveTimer_timeout"):
 		main.call("_on_WaveTimer_timeout")
 	elif main.has_method("clean_up_room"):
 		main.call("clean_up_room")

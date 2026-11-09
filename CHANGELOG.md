@@ -1,5 +1,15 @@
 # Brotato Online — 非官方修复版 / Unofficial Fixed Release
 
+## 6.8.1 — 2026-11-09 — 波次结算同步修复
+
+- 房主先进入商店时，客户端等待本机波末效果、收获计时器与 `RunData.on_wave_end()` 完成，再应用房主最终状态和切换场景，保留本地回调、步数进度及每波计数清理。
+- 成功结束战斗的房主终态先于客户端计时器到达时，客户端仍执行原版波末效果；三个结算计时器入口增加单波去重，避免重复奖励和副作用。
+- 场景同步补充未拾取材料账本 `bonus_gold` / `total_bonus_gold`。随机变异和恐龙蛋仍由房主结算并同步，客户端不重复抽取。
+- 新增双进程 LAN 延迟结算与重复回调回归测试。详细验证范围和证据见 `docs/wave-settlement-validation.md`。
+- Mod ID 保持 `wushuangabao-BrotatoOnlineFriends`，网络协议保持 `6.5.0`；房主和所有客户端均应更新至 6.8.1，确保各端都具备本次结算修复。
+
+Clients now finish native local wave settlement before applying the host's shop state. Successful cleanup entries execute native wave-end effects, duplicate timer callbacks are ignored, and scene synchronization includes the leftover-material ledger. Host-owned mutation and dinosaur-egg results remain authoritative. The Mod ID and wire protocol remain unchanged; update every peer to 6.8.1 so all peers receive these fixes.
+
 ## 6.8.0 — 2026-11-09 — Brotato Online Friends
 
 原作者 / Original author: **six666**。独立维护 / Fork maintainer: **wushuangabao**。本版本基于原项目修改，保留作者与许可证声明，遵循 GNU GPL v3。

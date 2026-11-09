@@ -11,6 +11,8 @@ func on_wave_end() -> void:
 			before.append(player.items.duplicate())
 	.on_wave_end()
 	_bo_host_settles_mutations = false
+	if is_instance_valid(main):
+		main.set_meta("bo_wave_run_data_settled", true)
 	for index in range(min(before.size(), players_data.size())):
 		var player = players_data[index]
 		if before[index] != player.items:

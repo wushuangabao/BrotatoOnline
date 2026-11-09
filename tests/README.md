@@ -71,3 +71,24 @@ Both shop runners use isolated saves and enable only BrotatoOnline. Install the 
 The 40-check shop suite uses actual CoopShop, ordinary SMG/Lens offers retained from the previous wave, and native purchase/lock code. Controlled delivery of host rejection snapshots verifies that identical cached states restore lock visuals, sold/active state, button availability, gold and inventory. It also covers a state arriving after a successful purchase receipt, one outstanding repair, no duplicate purchase, no repair loop, old corrections/receipts/rerolls after a newer repair, partial lock deltas overtaking receipts or repairs, and ignoring receipts from a previous wave. Identity lookup is isolated in a test manager; transport rejection and the earlier cause of stale input are not simulated as natural gameplay.
 
 The LAN suite launches two independent Godot processes. A controlled wave-21 fixture gives the client two pistols and a locked SMG from wave 20. Client production UI callbacks combine the pistols and buy the SMG in one turn, before receiving either reply. With owner handoff enabled, production ENet, native local actions, result mirroring and gear UI run unchanged. Both peers must finish with a tier-II pistol, one SMG and 9920 gold. Logs, source hashes, JSON snapshots and rendered screenshots are retained. This is not a Steam WAN or separate-machine test.
+
+## Native wave settlement while the client is late
+
+```powershell
+foreach ($mode in 'end', 'harvest', 'wave', 'rewards', 'endless', 'cleanup') {
+    ./tests/Test-WaveSettlementLan.ps1 -ProjectPath E:/github/BrotatoMod/RecoveredProject -Mode $mode
+}
+```
+
+Deploy the current production scripts plus `wave_settlement_lan.gd`, `wave_settlement_lan.tscn`, `wave_settlement_delay_main.gd` and the existing `meca_upgrade_lan.gd` helper first. The runner checks deployed hashes and starts two independent GodotSteam 3.6 processes with isolated save directories and only Friends enabled. Do not run other LAN suites concurrently: they share localhost port 27462.
+
+- `end`: pause the client's native EndWaveTimer until the host has entered the shop and sent its full scene state over ENet.
+- `harvest`: delay the client's HarvestingTimer instead.
+- `wave`: a test-only Main extension delays entry into the client's native WaveTimer callback, including terminal-packet entry.
+- `rewards`: delay HarvestingTimer, give the client a native crate queue and enough harvesting XP to level up, then use the real client UI signals to take a controlled cake offer and a range upgrade. The host reaches the shop only after these choices finish.
+- `endless`: delay EndWaveTimer during an endless wave; include the native demon conversion effect and verify harvesting decay.
+- `cleanup`: the test-only Main extension first enters successful `clean_up_room()` directly; the production drain barrier must run native WaveTimer effects before cleanup. EndWaveTimer remains delayed until the host reaches the shop.
+
+The client must remain in its old Main scene until the injected delay is released. Assertions cover the `end_of_the_wave` signal, local ProgressData steps, per-wave reset, currency, XP/level, wave-end stats, harvesting growth/decay, pending mutations, a dinosaur egg advancing once, and the shared bonus-material ledger. After native settlement, the test invokes all three timer callbacks again and delivers three duplicate shop states; no measured reward or callback may repeat. Host/client final snapshots must match.
+
+Controlled setup uses no enemies, shortened waves, seeded bonus-material accounting and a queued crate; it does not test physical pickup claims, Steam WAN, achievement-server writes or every item combination. The crate/upgrade actions, native settlement, production start handshake and ENet scene transfer are real. See `docs/wave-settlement-validation.md` for the retained pre-fix failure and post-fix evidence.

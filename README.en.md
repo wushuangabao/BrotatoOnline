@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-> **Independent fork 6.8.0 (2026-11-09)**. Original author: six666. Fork maintainer: wushuangabao.
+> **Independent fork 6.8.1 (2026-11-09)**. Original author: six666. Fork maintainer: wushuangabao.
 > Trusted multiplayer for friends: personal shops and mechanical upgrades apply locally, then synchronize results. Supports multiple local players per client, up to four players total, with retry and automatic battle entry fixes. See [CHANGELOG.md](CHANGELOG.md) for details and validation scope.
 > New Mod ID: `wushuangabao-BrotatoOnlineFriends`, intended for a separate Workshop item. Every player must use this version and disable the original or older fixed releases with ID `six666-BrotatoOnline`.
 > [Original project](https://github.com/xx666zz/BrotatoOnline) · [Fixed source](https://github.com/wushuangabao/BrotatoOnline) · [GPL-3.0 license](LICENSE)
@@ -20,7 +20,11 @@ The goal is not to replace Brotato's original co-op flow with a completely diffe
 
 ## Usage
 
-### Trusted personal shops (6.8.0)
+### Wave settlement fixes (6.8.1)
+
+When the host reaches the shop first, clients finish local wave-end callbacks, harvesting and per-wave cleanup before applying the host's final state and changing scenes. This fixes skipped local step accounting and missing leftover-material ledger synchronization, and prevents repeated settlement. Local two-process LAN checks cover delayed settlement, crates and upgrades, dinosaur eggs and mutations, endless harvesting decay and material conversion. See the [validation report](docs/wave-settlement-validation.md).
+
+### Trusted personal shops (since 6.8.0)
 
 Each client executes its own purchases, rerolls, locks, combines, recycling, dismantling and mechanical upgrades immediately, including random results. The host mirrors and relays per-player results instead of replaying clicks or rolling back local edits. Closely spaced operations share a snapshot; the latest unacknowledged result is retried.
 
@@ -28,7 +32,7 @@ The host still coordinates the shared battle and scene changes. The start handsh
 
 The handoff includes full personal `PlayerRunData` (equipment and modifications, items and effects, health, level/XP, gold and chips), plus offers, locks and reroll counters. The host combines these with shared wave, difficulty, zone, DLC, elite and event configuration to rebuild the start snapshot. Previous-wave enemies, projectiles and temporary scene nodes are not carried as personal state.
 
-This release uses network protocol **`6.5.0`**. Update the host and every client to **6.8.0**; it cannot mix with 6.7.0 or the original Mod. Settings and online identity storage use the new ID and are not automatically migrated. Other mods that declare dependencies/load order or find the API using the old Mod ID need to adopt the new ID.
+This release uses network protocol **`6.5.0`**. Update the host and every client to **6.8.1**; it cannot mix with 6.7.0 or the original Mod. Settings and online identity storage use the new ID and are not automatically migrated. Other mods that declare dependencies/load order or find the API using the old Mod ID need to adopt the new ID.
 
 ### Multiple local players on a client
 
@@ -38,7 +42,7 @@ After joining a room, remain on character selection and hold the vanilla co-op j
 - Local players select characters, shop, move, take damage and die independently. Adding seats is limited to character selection, before the run starts.
 - The first player uses the configured online input device. Select keyboard/mouse there first if controllers should join as additional players.
 - Reconnection retains all seats belonging to that client. Connect enough devices before continuing a saved run. Kicking a client removes all of its seats.
-- Update the host and every client to 6.8.0 (network protocol `6.5.0`). It cannot mix with older releases or the original Mod.
+- Update the host and every client to 6.8.1 (network protocol `6.5.0`). It cannot mix with older releases or the original Mod.
 
 Automated verification uses two local Godot processes, real LAN transport and injected device input. Physical controllers and Steam sessions across computers still require testing. See [tests/README.md](tests/README.md) for commands and scope.
 
@@ -133,7 +137,7 @@ Current compatibility:
 | ------------------------------- | ---------- |
 | Brotato (locally tested)         | `1.2.0.1` |
 | ModLoader                       | `6.3.0`    |
-| Brotato Online release          | `6.8.0`    |
+| Brotato Online release          | `6.8.1`    |
 | Brotato Online network protocol | `6.5.0` |
 | Maximum players                 | `4`        |
 

@@ -326,10 +326,34 @@ func _brotato_online_restart_wave_timer_while_waiting_for_host(reason: String) -
 		timer.start(1.0)
 
 
+var _bo_wave_effects_started = false
+var _bo_harvesting_applied = false
+var _bo_end_wave_callback_started = false
+var _bo_host_finished_wave = false
+
+func bo_ready_for_host_shop() -> bool:
+	# Preserve local callbacks/ProgressData before authoritative RunData replaces
+	# this wave's inputs. Never replay settlement over the host's final rewards.
+	if not _brotato_online_is_online_client():
+		return true
+	_bo_host_finished_wave = true
+	if not _bo_wave_effects_started and not _cleaning_up:
+		_on_WaveTimer_timeout()
+	return _bo_wave_effects_started and bool(get_meta("bo_wave_run_data_settled", false)) and _harvesting_timer.is_stopped()
+
+func _on_HarvestingTimer_timeout() -> void:
+	if _brotato_online_is_online_session_active():
+		if _bo_harvesting_applied:
+			return
+		_bo_harvesting_applied = true
+	._on_HarvestingTimer_timeout()
+
 func _on_WaveTimer_timeout() -> void:
+	if _brotato_online_is_online_session_active() and _bo_wave_effects_started:
+		return
 	# Online clients must not let their local vanilla Timer complete the wave before
 	# at least one clearly-active Host snapshot has been accepted for this battle.
-	if _brotato_online_should_block_local_wave_timeout():
+	if not _bo_host_finished_wave and _brotato_online_should_block_local_wave_timeout():
 		_brotato_online_restart_wave_timer_while_waiting_for_host("wait_host_active_snapshot")
 		return
 
@@ -340,6 +364,7 @@ func _on_WaveTimer_timeout() -> void:
 		if replica != null and replica.has_method("intercept_client_wave_timeout"):
 			if bool(replica.intercept_client_wave_timeout("main_wave_timer_timeout")):
 				return
+	_bo_wave_effects_started = true
 	._on_WaveTimer_timeout()
 
 
@@ -1188,6 +1213,10 @@ func _bo_record_pickup(id: String, kind: String, idx: int, full_hp: bool) -> voi
 		get_tree().create_timer(0.08).connect("timeout", self, "_bo_scheduled_flush", [], CONNECT_ONESHOT)
 
 func _on_EndWaveTimer_timeout() -> void:
+	if _brotato_online_is_online_session_active() and not _is_wave_failed:
+		if _bo_end_wave_callback_started:
+			return
+		_bo_end_wave_callback_started = true
 	if _brotato_online_is_online_session_active():
 		_bo_flush()
 	._on_EndWaveTimer_timeout()
