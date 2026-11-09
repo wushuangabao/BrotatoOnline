@@ -135,7 +135,7 @@ func apply_client_state(shop: Node, state: Dictionary) -> void:
 		RunData.emit_signal("meca_parts_changed", parts, index)
 	if state.has("dismantle_savings"):
 		RunData.set_tracked_value(index, Keys.item_titanium_excess_hash, state.dismantle_savings)
-	if manager._is_game_host() or index != manager._get_local_client_player_index() or not state.has("meca_upgrade_preview"):
+	if manager._is_game_host() or not manager._is_local_client_player_index(index) or not state.has("meca_upgrade_preview"):
 		return
 	var preview = state.meca_upgrade_preview
 	var popup = shop._get_item_popup(index)

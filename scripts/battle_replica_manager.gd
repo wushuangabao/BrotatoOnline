@@ -89,6 +89,7 @@ var _last_local_suppress_msec = 0
 var _last_player_state_send_msec = 0
 var _last_sent_player_dead_state = false
 var _sent_owned_player_terminal_state = false
+var _terminal_sent_by_player = {}
 var _last_terminal_player_state_reason = ""
 var _last_boss_damage_send_msec = 0
 var _apply_count = 0
@@ -208,26 +209,19 @@ func receive_battle_terminal_state_from_host(message: Dictionary) -> void:
 
 
 func _apply_owned_terminal_player_state_from_host(snapshot: Dictionary) -> void:
-	var owned_index = _get_owned_player_index()
-	if owned_index < 0:
-		return
-	var players = snapshot.get("players", [])
-	if typeof(players) != TYPE_ARRAY:
-		return
-	for state in players:
+	for state in snapshot.get("players", []):
 		if typeof(state) != TYPE_DICTIONARY:
 			continue
-		if int(state.get("player_index", -1)) != owned_index:
+		var index = int(state.get("player_index", -1))
+		if not _is_client_owned_player_index(index):
 			continue
 		var hp = int(state.get("health", state.get("hp", -1)))
-		var should_dead = bool(state.get("dead", false)) or (hp == 0 and not RunData.bo_uses_material_life(owned_index))
-		if should_dead:
-			_force_owned_player_dead_from_host_terminal(hp)
-		return
+		if bool(state.get("dead", false)) or (hp == 0 and not RunData.bo_uses_material_life(index)):
+			_force_owned_player_dead_from_host_terminal(hp, index)
 
 
-func _force_owned_player_dead_from_host_terminal(hp: int) -> void:
-	var player = _get_owned_player_node()
+func _force_owned_player_dead_from_host_terminal(hp: int, player_index: int = -1) -> void:
+	var player = _get_owned_player_node(player_index)
 	if not _is_valid_node(player):
 		return
 	var current_stats = player.get("current_stats")
@@ -934,7 +928,7 @@ func _prepare_remote_player_damage_proxies(force: bool) -> void:
 		if not _is_valid_node(player):
 			continue
 		var player_index = _get_player_index_from_node(player, i)
-		if player_index == owned_index:
+		if _is_client_owned_player_index(player_index):
 			continue
 		_prepare_remote_player_hurtbox_proxy(player, player_index, "client_remote_guard")
 
@@ -1845,11 +1839,11 @@ func _apply_remote_player_states(snapshot: Dictionary, server_time_msec: int) ->
 		if typeof(p) != TYPE_DICTIONARY:
 			continue
 		var idx = int(p.get("player_index", -1))
-		if idx == owned_index and idx >= 0 and bool(p.get("dead", false)) and RunData.bo_uses_material_life(idx):
-			var owned = _get_owned_player_node()
+		if _is_client_owned_player_index(idx) and idx >= 0 and bool(p.get("dead", false)) and RunData.bo_uses_material_life(idx):
+			var owned = _get_owned_player_node(idx)
 			if _is_valid_node(owned) and not owned.dead:
-				_force_owned_player_dead_from_host_terminal(0)
-		if idx < 0 or idx == owned_index:
+				_force_owned_player_dead_from_host_terminal(0, idx)
+		if idx < 0 or _is_client_owned_player_index(idx):
 			continue
 		var pos = _dict_to_vec2(p.get("pos", {}))
 		var vel = _dict_to_vec2(p.get("vel", {}))
@@ -2134,21 +2128,16 @@ func _flush_boss_damage_reports(force: bool) -> void:
 func send_owned_player_terminal_state(player: Node = null, reason: String = "terminal") -> void:
 	if _is_game_host() or not _is_online_session_active():
 		return
-	if _sent_owned_player_terminal_state and _last_terminal_player_state_reason == reason:
-		return
-	var owned_index = _get_owned_player_index()
-	if owned_index < 0:
-		return
-	if _is_valid_node(player):
-		var passed_index = _get_player_index_from_node(player, -999999)
-		if passed_index != owned_index:
-			# Main._on_player_died can also fire for Host-owned mirrored players on a client.
-			# A client may only ever report death for its own slot; otherwise it can falsely
-			# kill P1 on Host when a remote proxy enters the local fail path.
-			return
-	else:
-		player = _get_owned_player_node()
 	if not _is_valid_node(player):
+		var slots = _get_slot_manager()
+		if slots != null:
+			for index in slots.get_local_player_indices():
+				var owned = _get_owned_player_node(int(index))
+				if _is_valid_node(owned):
+					send_owned_player_terminal_state(owned, reason)
+		return
+	var owned_index = _get_player_index_from_node(player, -1)
+	if not _is_client_owned_player_index(owned_index) or str(_terminal_sent_by_player.get(owned_index, "")) == reason:
 		return
 	var current_stats = player.get("current_stats")
 	var local_hp = int(current_stats.health) if current_stats != null else -1
@@ -2164,38 +2153,19 @@ func send_owned_player_terminal_state(player: Node = null, reason: String = "ter
 	_sent_owned_player_terminal_state = _send_owned_player_state_packet(player, true, reason, 3)
 	if _sent_owned_player_terminal_state:
 		_last_terminal_player_state_reason = reason
+		_terminal_sent_by_player[owned_index] = reason
 
 
 func _poll_and_send_player_state(force: bool) -> void:
-	var now = OS.get_ticks_msec()
-	# Avoid resolving the owned player through RuntimeLocator/player arrays on every
-	# rendered frame. During the interval, only a newly observed death edge is allowed
-	# through so terminal reporting remains immediate.
-	if not force and now - _last_player_state_send_msec < PLAYER_STATE_SEND_INTERVAL_MSEC:
-		var cached_player = _get_cached_owned_player_node_for_current_scene()
-		if not _is_valid_node(cached_player):
-			return
-		var cached_stats = cached_player.get("current_stats")
-		var cached_hp = int(cached_stats.health) if cached_stats != null else -1
-		var cached_dead = bool(cached_player.get("dead"))
-		if cached_stats != null and cached_hp <= 0 and not RunData.bo_uses_material_life(cached_player.player_index):
-			cached_dead = true
-		if not cached_dead or _last_sent_player_dead_state:
-			return
-
-	var player = _get_owned_player_node()
-	if not _is_valid_node(player):
+	if not force and OS.get_ticks_msec() - _last_player_state_send_msec < PLAYER_STATE_SEND_INTERVAL_MSEC:
 		return
-	var current_stats = player.get("current_stats")
-	var local_hp = int(current_stats.health) if current_stats != null else -1
-	var local_dead = bool(player.get("dead"))
-	if current_stats != null and local_hp <= 0 and not RunData.bo_uses_material_life(player.player_index):
-		# Some death packets can be sampled while HP already reached zero but before / instead of
-		# the vanilla dead flag being visible to the autoload. Treat HP<=0 as death authority.
-		local_dead = true
-	if local_dead and not ENABLE_PLAYER_DEATH_REPORTS:
+	var slots = _get_slot_manager()
+	if slots == null:
 		return
-	_send_owned_player_state_packet(player, false, "poll", 1)
+	for index in slots.get_local_player_indices():
+		var player = _get_owned_player_node(int(index))
+		if _is_valid_node(player):
+			_send_owned_player_state_packet(player, false, "poll", 1)
 
 
 func _send_owned_player_state_packet(player: Node, force_dead: bool, reason: String, repeat_count: int = 1) -> bool:
@@ -2205,11 +2175,8 @@ func _send_owned_player_state_packet(player: Node, force_dead: bool, reason: Str
 		return false
 	if not _is_valid_node(player):
 		return false
-	var owned_index = _get_owned_player_index()
-	if owned_index < 0:
-		return false
-	var node_index = _get_player_index_from_node(player, owned_index)
-	if node_index != owned_index:
+	var owned_index = _get_player_index_from_node(player, -1)
+	if not _is_client_owned_player_index(owned_index):
 		return false
 	var now = OS.get_ticks_msec()
 	_last_player_state_send_msec = now
@@ -2844,7 +2811,7 @@ func _apply_host_economy_player_state(state: Dictionary) -> void:
 func _apply_host_level_state(player_index: int, player_data, old_level: int, host_level: int) -> void:
 	if host_level == old_level:
 		return
-	if player_index == _get_owned_player_index():
+	if _is_client_owned_player_index(player_index):
 		# The local client owns its character runtime stats. Sync the numeric level only;
 		# do not emit levelled_up here or max-health/stat side effects run again.
 		player_data.current_level = host_level
@@ -3120,7 +3087,7 @@ func _progression_container_is_showing_mode(container: Node, mode: String) -> bo
 
 
 func _ensure_client_progression_interaction_ready(container: Node, player_index: int, reason: String) -> void:
-	if _is_game_host() or player_index != _get_owned_player_index():
+	if _is_game_host() or not _is_client_owned_player_index(player_index):
 		return
 	var menu_sync = _get_menu_sync_manager()
 	if menu_sync != null and menu_sync.has_method("ensure_client_progression_interaction_ready"):
@@ -3206,7 +3173,7 @@ func _apply_host_hp_state_to_player(player_index: int, hp: int, max_hp: int) -> 
 	var player = players[player_index]
 	if not _is_valid_node(player):
 		return
-	var is_owned = player_index == _get_owned_player_index()
+	var is_owned = _is_client_owned_player_index(player_index)
 	if is_owned:
 		_apply_owned_player_authoritative_max_hp(player, max_hp)
 		return
@@ -3266,7 +3233,7 @@ func _update_hud_from_host_economy(player_index: int, state: Dictionary) -> void
 		ui.xp_bar.update_value(xp % next_xp, next_xp)
 	if ui.level_label != null:
 		ui.update_level_label()
-	if player_index == _get_owned_player_index():
+	if _is_client_owned_player_index(player_index):
 		return
 	var hp = int(state.get("hp", -1))
 	var max_hp = int(state.get("max_hp", -1))
@@ -3569,6 +3536,7 @@ func _clear_all(reason: String) -> void:
 	_last_host_battle_inactive_cleanup_msec = 0
 	_last_sent_player_dead_state = false
 	_sent_owned_player_terminal_state = false
+	_terminal_sent_by_player.clear()
 	_last_terminal_player_state_reason = ""
 	_cached_owned_player_node = null
 	_cached_owned_player_scene_instance_id = 0
@@ -3997,13 +3965,14 @@ func _is_local_combat_category(category: String) -> bool:
 func _is_client_owned_player_index(player_index: int) -> bool:
 	if _is_game_host():
 		return false
-	return player_index >= 0 and player_index == _get_owned_player_index()
+	var slots = _get_slot_manager()
+	return slots != null and slots.is_local_player_index(player_index)
 
 
-func _get_owned_player_node() -> Node:
+func _get_owned_player_node(player_index: int = -1) -> Node:
 	var scene = get_tree().current_scene
 	var scene_instance_id = scene.get_instance_id() if scene != null and is_instance_valid(scene) else 0
-	var owned_index = _get_owned_player_index()
+	var owned_index = player_index if player_index >= 0 else _get_owned_player_index()
 	if owned_index < 0:
 		return null
 	if scene_instance_id != 0 and scene_instance_id == _cached_owned_player_scene_instance_id and _is_valid_node(_cached_owned_player_node):

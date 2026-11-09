@@ -83,7 +83,7 @@ func _brotato_online_is_remote_online_proxy() -> bool:
 	# death callbacks on online clients.
 	if local_index < 0 or self_index < 0:
 		return false
-	return self_index != local_index
+	return not _brotato_online_get_slot_manager().is_local_player_index(self_index)
 
 
 func _brotato_online_is_owned_online_client_player() -> bool:
@@ -91,7 +91,7 @@ func _brotato_online_is_owned_online_client_player() -> bool:
 		return false
 	var local_index = _brotato_online_get_local_client_player_index()
 	var self_index = _brotato_online_get_self_player_index()
-	return local_index >= 0 and self_index >= 0 and self_index == local_index
+	return local_index >= 0 and _brotato_online_get_slot_manager().is_local_player_index(self_index)
 
 
 func _brotato_online_get_hitbox_parent(hitbox) -> Node:

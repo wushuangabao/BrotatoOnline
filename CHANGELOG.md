@@ -1,5 +1,41 @@
 # Brotato Online — 非官方修复版 / Unofficial Fixed Release
 
+## 6.7.0 — 2026-11-09
+
+原作者 / Original author: **six666**。修复维护者 / Fix maintainer: **wushuangabao**。
+
+This unofficial release was modified by wushuangabao on 2026-11-09. Original authorship and existing notices are retained. Distributed under the GNU GPL v3; see [LICENSE](LICENSE).
+
+### 新增与修复
+
+1. **客户端本地多人**：进入房间的角色选择页后，额外设备长按原版加入键约 0.7 秒即可加入。支持键鼠加手柄或多个手柄，全房间合计最多四人，例如房主一人加客户端三人、双方各两人。
+2. **按角色同步与校验**：同一连接可拥有多个角色，各自独立选人、购物、移动、受伤和死亡；房主按连接归属校验角色编号，防止误操作其他玩家。同步补齐升级交互、DLC 拾取、暂停焦点和本地角色描边的多人归属处理。
+3. **归属与重连**：为同一客户端的不同角色保留独立座位标识；断线重连恢复全部角色，存档归属布局支持一个客户端对应多个角色。踢出客户端会移除其全部角色。
+4. **加入边界**：仅在角色选择阶段增加玩家，开局后固定阵容；重复加入请求不创建重复角色，迟到的拒绝消息不清除已确认座位。修复新增设备重建选人界面时的失效焦点引用。
+5. 包含 6.6.8 的商店锁定与购买同步修复，以及此前的暂停商店同步、失败重试和客户端自动进场修复。
+
+### 安装与兼容
+
+- **房主和所有客户端均须更新至 6.7.0**。网络协议从 `6.3.0` 升至 `6.4.0`，不兼容 6.6.8 及更早版本；LAN 协议仍为 `4`。
+- 内部 Mod ID 保持 `six666-BrotatoOnline`，请勿与原版同时启用。首名玩家使用联机设置中的输入设备；继续多人存档前请连接足够数量的设备。
+- 发布 ZIP 仅含 Mod 源码、许可证、文档和打包脚本，不含游戏、测试场景、存档、日志或其他 Mod。
+
+### 验证与范围
+
+- GodotSteam 3.6、恢复的 Brotato 1.2.0.1 项目：两个独立本地进程通过真实 LAN 验证 **1＋3** 和 **2＋2** 组合，仅启用 BrotatoOnline，使用隔离存档。
+- 注入设备长按事件经过原版加入计时器；选人、购物、开战、独立移动与受伤、次要角色死亡和重连采用实际生产代码。另验证人数上限、重复加入、归属越界拒绝、DLC 拾取校验和存档角色布局恢复。
+- 原有商店同步 40 项、失败重试 10 项、自动进场 18 项受控运行时回归通过。复现脚本与准确验证边界见源码仓库 `tests/README.md`。
+- 测试使用模拟输入、受控商店与伤害场景、主动触发的断线重连；存档测试覆盖归属布局恢复，未覆盖重启双方后点击继续的完整流程。实体手柄、Steam 跨机器联机、所有 DLC/第三方 Mod 组合及最终 ZIP 的创意工坊订阅安装尚未验证。
+
+### Changes (English)
+
+- Multiple local players can join one client by holding the vanilla co-op join button on additional devices during character selection. Keyboard/mouse plus controllers and multiple controllers share a four-player room limit.
+- Track ownership per seat for independent character selection, shopping, movement, damage and death. Extend progression interactions, DLC pickup validation, pause focus and local outlines to all local seats.
+- Preserve every seat on reconnect and distinguish seats in saved ownership layouts. Kicking a client removes all its seats. Reject over-capacity and in-run additions, handle duplicate requests safely, and clear stale focus references before selection controls are freed.
+- Includes all 6.6.8 shop fixes and earlier retry/catchup fixes. Update **all peers to 6.7.0**: network protocol is now `6.4.0`, incompatible with 6.6.8 and earlier. LAN protocol and internal Mod ID remain unchanged.
+
+Validation: two independent local LAN processes pass host 1 + client 3 and host 2 + client 2 scenarios with injected device input and controlled gameplay fixtures. Checks include per-seat actions, damage/death, reconnect, capacity, ownership rejection, DLC pickup routing and saved-layout restoration. The existing 68 shop/retry/catchup checks also pass. Physical controllers, Steam sessions across computers, a full restart-and-Continue flow, all DLC/third-party Mod combinations and Workshop installation of the final ZIP have not been tested.
+
 ## 6.6.8 — 2026-11-08
 
 原作者 / Original author: **six666**。修复维护者 / Fix maintainer: **wushuangabao**。

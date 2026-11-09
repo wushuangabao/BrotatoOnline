@@ -478,8 +478,31 @@ func _bind_slot_manager_signals() -> void:
 	var slot_manager = _get_slot_manager()
 	if slot_manager == null:
 		return
+	if not slot_manager.is_connected("client_local_join_requested", self, "_on_client_local_join_requested"):
+		slot_manager.connect("client_local_join_requested", self, "_on_client_local_join_requested")
 	if slot_manager.has_signal("host_local_topology_changed") and not slot_manager.is_connected("host_local_topology_changed", self, "_on_host_local_topology_changed"):
 		var _slot_signal_err = slot_manager.connect("host_local_topology_changed", self, "_on_host_local_topology_changed")
+
+
+func _on_client_local_join_requested(local_slot: int) -> void:
+	if _session_active and not _is_game_host():
+		_send_p2p_json(_get_game_host_steam_id(), {"msg_type": "client_local_join", "local_slot": local_slot}, true)
+
+
+func _handle_client_local_join(peer: String, message: Dictionary) -> void:
+	var seat = int(message.get("local_slot", -1))
+	var slots = _get_slot_manager()
+	var accepted = false
+	if _is_game_host() and _session_active and _is_current_lobby_remote_member(peer) and seat > 0 and seat < 4:
+		var existing = slots.get_remote_slot_index(peer, seat)
+		if existing >= 0:
+			accepted = true
+		elif not _should_freeze_online_run_slots() and _is_host_at_character_selection_for_lobby() and get_session_member_count() < MAX_LOBBY_MEMBERS:
+			accepted = slots._add_remote_steam_id(peer, seat) >= 0
+		if accepted:
+			_refresh_player_connection(peer)
+			_on_host_local_topology_changed([])
+	_send_p2p_json(peer, {"msg_type": "client_local_join_result", "local_slot": seat, "accepted": accepted}, true)
 
 
 func _on_host_local_topology_changed(_local_player_indices: Array) -> void:
@@ -855,7 +878,7 @@ func commit_resume_peer_order(layout: Array) -> void:
 	var ordered = []
 	for slot in layout:
 		var key = str(slot.get("peer_key", ""))
-		if key != "":
+		if key != "" and not ordered.has(key):
 			ordered.append(key)
 	# Unassigned waiting connections leave before the authoritative shop is sent.
 	for key in _connection_by_peer_key.keys():
@@ -884,9 +907,9 @@ func _refresh_player_connection(peer_key: String) -> void:
 	var slot_manager = _get_slot_manager()
 	if slot_manager == null or not slot_manager.has_method("get_player_index_for_steam_id"):
 		return
-	var player_index = int(slot_manager.get_player_index_for_steam_id(peer_key))
-	if player_index >= 0 and _connection_by_peer_key.has(peer_key):
-		_connections[player_index] = _connection_by_peer_key[peer_key]
+	for player_index in slot_manager.get_player_indices_for_steam_id(peer_key):
+		if _connection_by_peer_key.has(peer_key):
+			_connections[int(player_index)] = _connection_by_peer_key[peer_key]
 
 
 func _remove_player_connection(peer_key: String) -> void:
@@ -936,12 +959,15 @@ func broadcast_message(message: Dictionary, except_peer_key: String = "", reliab
 
 func get_session_member_count() -> int:
 	# Public/lobby capacity is game-player capacity, not machine/Steam-member count.
-	# A Host can own several local players while every remote peer still owns one.
+	# Both the Host and a remote peer can own several local players.
 	if _session_active and _is_game_host():
 		var identity = _get_identity_manager()
 		if identity != null and identity.is_resume_pending():
 			return int(max(1, _get_host_local_player_count_for_capacity())) + _connection_by_peer_key.size()
-		return int(max(1, _get_host_local_player_count_for_capacity())) + int(_session_remote_peer_keys.size())
+		var count = int(max(1, _get_host_local_player_count_for_capacity()))
+		for peer in _session_remote_peer_keys:
+			count += max(1, _get_slot_manager().get_player_indices_for_steam_id(str(peer)).size())
+		return count
 	if _session_active:
 		return int(max(max(1, int(CoopService.connected_players.size())), int(_members.size())))
 	return int(max(1, int(_members.size())))
@@ -2794,8 +2820,12 @@ func _handle_run_page_action_sync(from_steam_id: String, message: Dictionary) ->
 		return
 
 	_ensure_host_coop_slot_for_remote(from_steam_id)
-	if not message.has("origin_steam_id") or str(message.get("origin_steam_id", "")) == "":
-		message["origin_steam_id"] = from_steam_id
+	# The authenticated connection owns a set of seats; never trust a supplied origin.
+	var owned_index = _get_slot_manager().resolve_owned_player_index(from_steam_id, int(message.get("player_index", -1)))
+	if owned_index < 0:
+		return
+	message["player_index"] = owned_index
+	message["origin_steam_id"] = from_steam_id
 	var menu_sync_host = _get_menu_sync_manager()
 	if menu_sync_host != null and menu_sync_host.has_method("receive_run_page_action_sync"):
 		var corrected_state = menu_sync_host.receive_run_page_action_sync(from_steam_id, message, _self_steam_id)
@@ -3109,6 +3139,8 @@ func _get_message_lobby_id(message: Dictionary) -> String:
 
 
 func _is_known_online_message_type(msg_type: String) -> bool:
+	if msg_type in ["client_local_join", "client_local_join_result"]:
+		return true
 	if msg_type in ["player_kicked", "player_removed", "player_roster_commit"]:
 		return true
 	if msg_type == "heartbeat":
@@ -3117,6 +3149,8 @@ func _is_known_online_message_type(msg_type: String) -> bool:
 
 
 func _is_host_authoritative_message_type(msg_type: String) -> bool:
+	if msg_type == "client_local_join_result":
+		return true
 	if msg_type in ["player_kicked", "player_removed", "player_roster_commit"]:
 		return true
 	return msg_type == "host_character_setup" or msg_type == "host_weapon_setup" or msg_type == "game_start_prepare" or msg_type == "game_start_commit" or msg_type == "retry_wave_state" or msg_type == "retry_wave_end" or msg_type == "menu_scene_state" or msg_type == "run_page_action_sync" or msg_type == "quick_chat" or msg_type == "battle_reliable_events" or msg_type == "battle_snapshot" or msg_type == "battle_aim" or msg_type == "battle_terminal_state" or msg_type == "selection_state"
@@ -3738,7 +3772,7 @@ func _host_setup_has_valid_local_slot(message: Dictionary) -> bool:
 			matched += 1
 		elif steam_id == "" and target_client_player_index >= 0 and player_index == target_client_player_index:
 			matched += 1
-	return matched == 1
+	return matched >= 1 and matched <= 3
 
 
 func _should_ignore_duplicate_host_setup(from_steam_id: String, msg_type: String, message: Dictionary) -> bool:
@@ -3764,14 +3798,16 @@ func _update_client_members_from_selection_state(message: Dictionary) -> void:
 	if typeof(players) != TYPE_ARRAY:
 		return
 	var next_members = []
+	var seen_peers = {}
 	for player_data in players:
 		if typeof(player_data) != TYPE_DICTIONARY:
 			continue
 		var peer_key = str(player_data.get("steam_id", ""))
 		if peer_key == "" and int(player_data.get("player_index", -1)) == 0:
 			peer_key = _get_game_host_steam_id()
-		if peer_key == "":
+		if peer_key == "" or seen_peers.has(peer_key):
 			continue
+		seen_peers[peer_key] = true
 		next_members.append({"steam_id": peer_key, "name": peer_key, "owner": peer_key == _get_game_host_steam_id()})
 	if not next_members.empty():
 		_members = next_members
@@ -3838,6 +3874,14 @@ func _handle_p2p_message(from_steam_id: String, message: Dictionary) -> void:
 			api.receive_mod_message(from_steam_id, message)
 		return
 
+	if msg_type == "client_local_join" and _is_game_host():
+		_handle_client_local_join(from_steam_id, message)
+		return
+	if msg_type == "client_local_join_result" and not _is_game_host() and from_steam_id == _get_game_host_steam_id():
+		if not bool(message.get("accepted", false)):
+			_get_slot_manager().reject_client_local_join(int(message.get("local_slot", -1)))
+		return
+
 	if _should_drop_stale_client_battle_packet(from_steam_id, message):
 		return
 
@@ -3847,10 +3891,10 @@ func _handle_p2p_message(from_steam_id: String, message: Dictionary) -> void:
 		var idx = int(message.get("player_index", -1))
 		if idx < 0 or idx >= RunData.get_player_count():
 			return
-		if _is_game_host() and msg_type == "material_hit" and bo_api_get_player_index_for_steam_id(from_steam_id) == idx and _get_remote_ids_for_host_sync().has(from_steam_id):
+		if _is_game_host() and msg_type == "material_hit" and _get_slot_manager().resolve_owned_player_index(from_steam_id, idx) == idx and _get_remote_ids_for_host_sync().has(from_steam_id):
 			_get_state_snapshot_manager().bo_apply_material_hit(idx, message)
-		elif not _is_game_host() and msg_type == "material_death" and from_steam_id == _get_game_host_steam_id() and idx == _get_slot_manager().get_local_mirrored_player_index():
-			_get_battle_replica_manager()._force_owned_player_dead_from_host_terminal(0)
+		elif not _is_game_host() and msg_type == "material_death" and from_steam_id == _get_game_host_steam_id() and _get_slot_manager().is_local_player_index(idx):
+			_get_battle_replica_manager()._force_owned_player_dead_from_host_terminal(0, idx)
 		return
 	if msg_type == "dlc_pickups":
 		var main = get_tree().current_scene
@@ -3859,6 +3903,8 @@ func _handle_p2p_message(from_steam_id: String, message: Dictionary) -> void:
 		if main == null or not main.has_method("bo_receive_pickups"):
 			return
 		if _is_game_host():
+			# Pickups are batched across this peer's local seats; validate each row
+			# in Main.bo_receive_pickups using its authenticated peer key.
 			var slot = bo_api_get_player_index_for_steam_id(from_steam_id)
 			if slot >= 0 and _get_remote_ids_for_host_sync().has(from_steam_id):
 				main.bo_receive_pickups(message, slot, from_steam_id)
@@ -7405,6 +7451,7 @@ func _get_host_phase_setup_stable_key(state: Dictionary) -> String:
 				stable_players.append({
 					"player_index": int(player.get("player_index", -1)),
 					"steam_id": str(player.get("steam_id", "")),
+					"local_slot": int(player.get("local_slot", 0)),
 					"remote": bool(player.get("remote", false))
 				})
 		stable["players"] = stable_players

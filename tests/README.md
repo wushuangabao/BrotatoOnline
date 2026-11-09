@@ -1,5 +1,20 @@
 # Retry scene reload regression
 
+## Multiple local client players
+
+```powershell
+./tests/Test-ClientCoopLan.ps1 -ProjectPath E:/github/BrotatoMod/RecoveredProject -HostPlayers 1 -ClientPlayers 3
+./tests/Test-ClientCoopLan.ps1 -ProjectPath E:/github/BrotatoMod/RecoveredProject -HostPlayers 2 -ClientPlayers 2
+```
+
+Run these sequentially: both use localhost port 27462. The runner verifies every deployed production GDScript plus the fixture, isolates profiles with only BrotatoOnline enabled, and records source hashes, both process logs, JSON results and screenshots in `logs/client-local-coop-lan`. Saving is disabled.
+
+The client injects held joypad accept events through Godot Input and vanilla's 0.7-second join timer. Physical controllers are not simulated as attached hardware, so vanilla may display keyboard icons for these injected devices. Selection and purchase use production UI callbacks. A controlled endless-wave-21 fixture supplies ordinary retained locked weapons and separate gold/inventories. Movement, damage, secondary-player death, host automatic battle start and reconnect use real production nodes and ENet transport. Reconnection is triggered explicitly; this is not an uncontrolled network-failure test.
+
+Assertions cover independent seats, character confirmations, purchases, movement and damage; four-player capacity and duplicate joins; fixed battle rosters; authenticated ownership rejecting host-slot input/death spoofing; secondary-seat DLC pickup validation; saved ownership/layout restoration; and reconnect retaining all seats. The saved-layout check does not exercise restarting both applications and clicking Continue. Host extra seats are fixture-created. These tests do not establish physical-controller, Steam WAN, all-DLC or third-party-Mod compatibility.
+
+## Retry reload
+
 Install this checkout at `<Godot project>/mods-unpacked/six666-BrotatoOnline`, including `tests`, then run:
 
 ```powershell

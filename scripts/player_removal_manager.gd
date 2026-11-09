@@ -68,7 +68,8 @@ func _kick_peer_deferred(peer_key: String) -> void:
 		return
 	var index = int(_slots().get_player_index_for_steam_id(peer_key))
 	_affects_saved_run = _affects_saved_run or _session()._online_flow_started or _session()._is_in_active_online_run_scene()
-	_removed[index] = peer_key
+	for owned_index in _slots().get_player_indices_for_steam_id(peer_key):
+		_removed[int(owned_index)] = peer_key
 	_trace("kick", "player_index=" + str(index))
 	_session().detach_kicked_peer(peer_key)
 	_session().broadcast_message({"msg_type": "player_removed", "removed_indices": _removed.keys()}, "", true)
@@ -375,7 +376,7 @@ func handle_network_message(sender: String, message: Dictionary) -> bool:
 			return true
 		for index_value in message.get("removed_indices", []):
 			var index = int(index_value)
-			if index >= 0 and index < RunData.get_player_count() and index != _slots().get_local_mirrored_player_index():
+			if index >= 0 and index < RunData.get_player_count() and not _slots().is_local_player_index(index):
 				_removed[index] = ""
 		_refresh_player_list()
 	elif type == "player_roster_commit":

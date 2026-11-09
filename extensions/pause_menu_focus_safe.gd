@@ -50,6 +50,8 @@ func _brotato_online_get_local_player_index(fallback_index: int) -> int:
 	)
 	if manager == null:
 		return fallback_index if fallback_index >= 0 else 0
+	if manager.is_local_player_index(fallback_index):
+		return fallback_index
 
 	if manager.has_method("get_local_mirrored_player_index"):
 		var mirrored_index = int(manager.get_local_mirrored_player_index())

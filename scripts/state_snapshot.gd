@@ -1395,12 +1395,12 @@ func apply_entity_kill_claim(from_steam_id: String, message: Dictionary) -> void
 	var allow_looter = ENABLE_LOOTER_DEATH_REPORT_APPLY and category == "enemy" and _is_looter_entity(target)
 	if not ENABLE_DEATH_REPORT_APPLY and not allow_boss_elite and not allow_looter:
 		return
-	var player_index = int(message.get("player_index", -1))
+	var player_index = _get_player_slot_manager().resolve_owned_player_index(from_steam_id, int(message.get("player_index", -1)))
 	if player_index < 0:
-		player_index = _get_player_index_for_steam_id(from_steam_id)
+		return
 	# A remotely confirmed killing blow bypasses the local shovel hit callback.
 	var dig_chance = float(message.get("crate_dig_chance", 0.0))
-	if dig_chance > 0 and "crate_dig_chance" in target and player_index >= 0 and player_index < RunData.get_player_count() and player_index == _get_player_index_for_steam_id(from_steam_id):
+	if dig_chance > 0 and "crate_dig_chance" in target and player_index >= 0 and player_index < RunData.get_player_count() and _get_player_slot_manager().resolve_owned_player_index(from_steam_id, player_index) == player_index:
 		for weapon in RunData.get_player_weapons(player_index):
 			for effect in weapon.effects:
 				if effect is CrateDigChanceEffect:
@@ -1430,9 +1430,9 @@ func apply_boss_damage_report(from_steam_id: String, message: Dictionary) -> voi
 	var reports = message.get("reports", [])
 	if typeof(reports) != TYPE_ARRAY:
 		return
-	var player_index = int(message.get("player_index", -1))
+	var player_index = _get_player_slot_manager().resolve_owned_player_index(from_steam_id, int(message.get("player_index", -1)))
 	if player_index < 0:
-		player_index = _get_player_index_for_steam_id(from_steam_id)
+		return
 	var applied = 0
 	var total_damage = 0
 	for report in reports:
@@ -1527,16 +1527,8 @@ func bo_apply_material_hit(idx: int, msg: Dictionary) -> void:
 func apply_player_state(from_steam_id: String, message: Dictionary) -> void:
 	if not _is_game_host():
 		return
-	var expected_player_index = _get_player_index_for_steam_id(from_steam_id)
-	var player_index = int(message.get("player_index", -1))
-	if expected_player_index >= 0:
-		if player_index < 0:
-			player_index = expected_player_index
-		elif player_index != expected_player_index:
-			# Never trust the client-provided player_index over the Steam member -> COOP slot map.
-			# This prevents a client from accidentally killing Host/P1 when its local mirrored
-			# proxy fires Main._on_player_died.
-			return
+	var slots = _get_player_slot_manager()
+	var player_index = slots.resolve_owned_player_index(from_steam_id, int(message.get("player_index", -1))) if slots != null else -1
 	if player_index < 0:
 		return
 	# Non-terminal player_state is latest-only/unreliable. Reject older samples so
@@ -1734,9 +1726,7 @@ func apply_damage_claim_batch(from_steam_id: String, message: Dictionary) -> voi
 	var claims = message.get("claims", [])
 	if typeof(claims) != TYPE_ARRAY or claims.empty():
 		return
-	var player_index = int(message.get("player_index", -1))
-	if player_index < 0:
-		player_index = _get_player_index_for_steam_id(from_steam_id)
+	var player_index = _get_player_slot_manager().resolve_owned_player_index(from_steam_id, int(message.get("player_index", -1)))
 	if player_index < 0:
 		return
 

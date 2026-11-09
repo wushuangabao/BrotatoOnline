@@ -2,8 +2,8 @@
 
 [简体中文](README.md) | **English**
 
-> **Unofficial fixed release 6.6.8 (2026-11-08)**. Original author: six666. Fix maintainer: wushuangabao.
-> Adds fixes for stuck locked shop offers and purchased weapons missing from the client's inventory. Includes the paused-shop, retry reload, and automatic client catchup fixes. See [CHANGELOG.md](CHANGELOG.md) for details and validation scope.
+> **Unofficial fixed release 6.7.0 (2026-11-09)**. Original author: six666. Fix maintainer: wushuangabao.
+> Adds multiple local players per client: hold the join button on additional devices after entering a room, up to four players total. Includes the shop synchronization, retry reload, and automatic client catchup fixes. See [CHANGELOG.md](CHANGELOG.md) for details and validation scope.
 > This fork retains the internal ID `six666-BrotatoOnline`: enable either this release or the original, never both. All players should use the same fixed release.
 > [Original project](https://github.com/xx666zz/BrotatoOnline) · [Fixed source](https://github.com/wushuangabao/BrotatoOnline) · [GPL-3.0 license](LICENSE)
 
@@ -19,6 +19,18 @@ Brotato Online is a mod that adds multiplayer support to *Brotato*. It currently
 The goal is not to replace Brotato's original co-op flow with a completely different multiplayer mode. Instead, the project tries to preserve the vanilla co-op experience and mod compatibility while allowing players on different machines to share the same run.
 
 ## Usage
+
+### Multiple local players on a client (6.7.0)
+
+After joining a room, remain on character selection and hold the vanilla co-op join button on each additional device for about 0.7 seconds (controller A/confirm or keyboard Space; follow the in-game prompt). The host assigns each new seat and shares the roster with everyone.
+
+- Keyboard/mouse plus controllers or multiple controllers share the room's four-player limit: host 1 + client 3, or 2 + 2, for example.
+- Local players select characters, shop, move, take damage and die independently. Adding seats is limited to character selection, before the run starts.
+- The first player uses the configured online input device. Select keyboard/mouse there first if controllers should join as additional players.
+- Reconnection retains all seats belonging to that client. Connect enough devices before continuing a saved run. Kicking a client removes all of its seats.
+- Update the host and every client to 6.7.0 (network protocol `6.4.0`). It cannot mix with 6.6.8 or earlier releases.
+
+Automated verification uses two local Godot processes, real LAN transport and injected device input. Physical controllers and Steam sessions across computers still require testing. See [tests/README.md](tests/README.md) for commands and scope.
 
 ### Steam
 
@@ -111,8 +123,8 @@ Current compatibility:
 | ------------------------------- | ---------- |
 | Brotato (locally tested)         | `1.2.0.1` |
 | ModLoader                       | `6.3.0`    |
-| Brotato Online release          | `6.6.8`    |
-| Brotato Online network protocol | `6.3.0`    |
+| Brotato Online release          | `6.7.0`    |
+| Brotato Online network protocol | `6.4.0`    |
 | Maximum players                 | `4`        |
 
 ## Network Architecture

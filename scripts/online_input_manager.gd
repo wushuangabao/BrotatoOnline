@@ -17,6 +17,7 @@ const SHARED_AIM_TIMEOUT_MSEC = 1250
 var _last_send_msec = 0
 var _last_heartbeat_msec = 0
 var _last_sent_key = ""
+var _last_sent_input_by_player = {}
 var _local_tick = 0
 var _host_local_aim_tick = 0
 var _last_host_local_aim_send_msec = 0
@@ -62,7 +63,7 @@ func receive_battle_input(from_steam_id: String, message: Dictionary) -> Diction
 	if slot_manager == null or not slot_manager.has_method("get_player_index_for_steam_id"):
 		return {}
 
-	var player_index = int(slot_manager.get_player_index_for_steam_id(from_steam_id))
+	var player_index = slot_manager.resolve_owned_player_index(from_steam_id, int(message.get("player_index", -1)))
 	if player_index < 0 or player_index >= RunData.get_player_count():
 		return {}
 
@@ -105,6 +106,7 @@ func clear_remote_inputs() -> void:
 	_shared_aim_by_player.clear()
 	_host_local_aim_keys.clear()
 	_last_sent_key = ""
+	_last_sent_input_by_player.clear()
 	_last_send_msec = 0
 	_last_heartbeat_msec = 0
 	_release_all_remote_actions()
@@ -317,38 +319,40 @@ func consume_local_battle_input_messages() -> Array:
 		return messages
 	_last_send_msec = now
 
-	var player_index = _get_local_player_index()
-	var player_count = RunData.get_player_count()
-	if player_index < 0 or player_index >= player_count:
+	var slots = _get_slot_manager()
+	if slots == null:
 		return messages
+	for player_index in slots.get_local_player_indices():
+		if int(player_index) < 0 or int(player_index) >= RunData.get_player_count():
+			continue
+		var device = CoopService.get_remapped_player_device(player_index)
+		if device < 0:
+			continue
 
-	var device = CoopService.get_remapped_player_device(player_index)
-	if device < 0:
-		return messages
+		var move = _read_move_vector_for_device(device)
+		var sharing = _should_share_local_aim(player_index)
+		var aim = _read_aim_for_player(player_index, device) if sharing else Vector2.ZERO
+		sharing = sharing and aim.length_squared() > 0.05
+		var key = _vector_key(move) + "|" + _vector_key(aim) + "|" + str(sharing)
+		var previous = _last_sent_input_by_player.get(player_index, {})
+		var should_send = key != str(previous.get("key", "")) or now - int(previous.get("time", 0)) >= HEARTBEAT_INTERVAL_MSEC
+		if not should_send:
+			continue
 
-	var move = _read_move_vector_for_device(device)
-	var sharing = _should_share_local_aim(player_index)
-	var aim = _read_aim_for_player(player_index, device) if sharing else Vector2.ZERO
-	sharing = sharing and aim.length_squared() > 0.05
-	var key = _vector_key(move) + "|" + _vector_key(aim) + "|" + str(sharing)
-	var should_send = key != _last_sent_key or now - _last_heartbeat_msec >= HEARTBEAT_INTERVAL_MSEC
-	if not should_send:
-		return messages
+		_last_sent_input_by_player[player_index] = {"key": key, "time": now}
+		_local_tick += 1
 
-	_last_sent_key = key
-	_last_heartbeat_msec = now
-	_local_tick += 1
-
-	messages.append({
-		"msg_type": "battle_input",
-		"tick": _local_tick,
-		"player_index": player_index,
-		"move": _vec_to_dict(move),
-		"aim": _vec_to_dict(aim),
-		"share_aim": sharing,
-		"actions": {}
-	})
+		messages.append({
+			"msg_type": "battle_input",
+			"tick": _local_tick,
+			"player_index": player_index,
+			"move": _vec_to_dict(move),
+			"aim": _vec_to_dict(aim),
+			"share_aim": sharing,
+			"actions": {}
+		})
 	return messages
+
 
 func _read_move_vector_for_device(device: int) -> Vector2:
 	var button_vec = Input.get_vector(
@@ -397,7 +401,7 @@ func is_local_player_index(player_index: int) -> bool:
 		return false
 	if _is_host():
 		return slot_manager.has_method("is_remote_player_index") and not bool(slot_manager.is_remote_player_index(player_index))
-	return player_index == _get_local_player_index()
+	return slot_manager.is_local_player_index(player_index)
 
 
 func _read_aim_for_player(player_index: int, device: int) -> Vector2:

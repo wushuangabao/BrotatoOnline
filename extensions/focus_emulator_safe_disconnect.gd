@@ -10,6 +10,13 @@ signal bo_focused_control_changed(control)
 var _bo_last_focus_event_control_id = -1
 
 
+func _bo_on_focused_control_exiting(control_id: int) -> void:
+	# Godot calls inherited draw notifications too. Clear the reference before
+	# the grid frees it, so vanilla's queued draw never sees a deleted Control.
+	if is_instance_valid(focused_control) and focused_control.get_instance_id() == control_id:
+		_clear_focused_control()
+
+
 func _bo_is_live_control(value) -> bool:
 	if value == null or typeof(value) != TYPE_OBJECT:
 		return false
@@ -33,12 +40,16 @@ func _connect_focused_control(control: Control) -> void:
 		return
 	if not control.is_connected("item_rect_changed", self, "update"):
 		._connect_focused_control(control)
+	if not control.is_connected("tree_exiting", self, "_bo_on_focused_control_exiting"):
+		control.connect("tree_exiting", self, "_bo_on_focused_control_exiting", [control.get_instance_id()])
 	_bo_emit_focused_control_changed(control)
 
 
 func _disconnect_focused_control(control: Control) -> void:
 	if not _bo_is_live_control(control):
 		return
+	if control.is_connected("tree_exiting", self, "_bo_on_focused_control_exiting"):
+		control.disconnect("tree_exiting", self, "_bo_on_focused_control_exiting")
 	._disconnect_focused_control(control)
 
 

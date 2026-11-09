@@ -38,7 +38,7 @@ try {
     $env:APPDATA = "$output\userdata"
     $env:BROTATO_TEST_DIR = $output
     $arguments = '--path "{0}" --no-window --audio-driver Dummy res://mods-unpacked/six666-BrotatoOnline/tests/{1}.tscn' -f $project, $scene
-    $process = Start-Process $Godot -ArgumentList $arguments -WindowStyle Hidden -PassThru -RedirectStandardOutput "$output\stdout.log" -RedirectStandardError "$output\stderr.log"
+    $process = Start-Process $Godot -ArgumentList $arguments -WorkingDirectory $project -WindowStyle Hidden -PassThru -RedirectStandardOutput "$output\stdout.log" -RedirectStandardError "$output\stderr.log"
 } finally {
     $env:APPDATA = $previousAppData
     $env:BROTATO_TEST_DIR = $previousTestDir

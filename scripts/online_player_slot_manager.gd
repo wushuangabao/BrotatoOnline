@@ -2,6 +2,7 @@ extends Node
 
 
 signal host_local_topology_changed(local_player_indices)
+signal client_local_join_requested(local_slot)
 
 
 const MAX_REMOTE_PLAYERS = 3
@@ -37,7 +38,11 @@ var _bo_slot_diag_last_state_msec_by_tag = {}
 
 var _last_restore_check_time = 0
 var _remote_steam_id_by_device = {}
-var _device_by_remote_steam_id = {}
+var _device_by_remote_steam_id = {} # Legacy primary-seat lookup only.
+var _remote_local_slot_by_device = {}
+var _client_entries_by_local_slot = {}
+var _previous_client_entries_by_local_slot = {}
+var _applying_client_layout = false
 var _remote_devices = []
 var _host_player_joined_by_manager = false
 var _local_mirrored_steam_id = ""
@@ -181,6 +186,11 @@ func _ready() -> void:
 
 
 func _on_connected_players_updated(_players = null) -> void:
+	if _applying_client_layout:
+		return
+	if _local_mirrored_player_index >= 0 and _is_online_session_active():
+		_capture_client_local_join()
+		return
 	# Vanilla owns local join input. Observe its finished topology instead of
 	# intercepting join buttons, then let SessionManager rebroadcast the new layout.
 	var local_layout_key = _build_local_layout_key()
@@ -251,6 +261,7 @@ func _process(_delta: float) -> void:
 		_bo_slot_diag_periodic("restore_check")
 		var t_restore = OS.get_ticks_usec()
 		_restore_tracked_coop_players_if_needed()
+		_sync_client_join_listening()
 		_bo_slot_diag_cost("restore_check", t_restore)
 
 
@@ -327,6 +338,8 @@ func apply_resume_identity_layout(layout: Array) -> bool:
 	var remote_by_device = {}
 	var device_by_remote = {}
 	var remote_devices = []
+	var remote_local_slots = {}
+	var used_remote_seats = []
 	var reserved = _get_connected_local_gamepad_remapped_devices()
 	for entry in local_entries:
 		if not reserved.has(int(entry[0])):
@@ -341,20 +354,26 @@ func apply_resume_identity_layout(layout: Array) -> bool:
 			used_locals.append(local_slot)
 			players.append(local_entries[local_slot])
 		else:
-			if device_by_remote.has(peer_key):
+			var seat = int(slot.get("local_slot", 0))
+			var seat_key = peer_key + ":" + str(seat)
+			if seat < 0 or seat > 3 or used_remote_seats.has(seat_key):
 				return false
+			used_remote_seats.append(seat_key)
 			var device = _get_next_remote_placeholder_device_from_lists(remote_devices, players, reserved)
 			if device < 0:
 				return false
 			players.append([device, REMOTE_PLACEHOLDER_PLAYER_TYPE])
 			remote_devices.append(device)
 			remote_by_device[device] = peer_key
-			device_by_remote[peer_key] = device
+			remote_local_slots[device] = seat
+			if not device_by_remote.has(peer_key):
+				device_by_remote[peer_key] = device
 	# Extra joined local devices are deliberately not assigned to saved slots.
 	# The saved player count and characters must remain unchanged.
 	# Commit once, with no per-player signals or RunData resizing. Gear and shop
 	# data keep their existing saved indices throughout the transaction.
 	_remote_steam_id_by_device = remote_by_device
+	_remote_local_slot_by_device = remote_local_slots
 	_device_by_remote_steam_id = device_by_remote
 	_remote_devices = remote_devices
 	_local_mirrored_player_index = -1
@@ -367,6 +386,9 @@ func apply_resume_identity_layout(layout: Array) -> bool:
 
 
 func online_clear_remote_players() -> void:
+	if not _client_entries_by_local_slot.empty():
+		_previous_client_entries_by_local_slot = _client_entries_by_local_slot.duplicate(true)
+	_client_entries_by_local_slot.clear()
 	_online_run_connected_players_snapshot.clear()
 	_mirrored_connected_players.clear()
 	_local_mirrored_player_index = -1
@@ -381,6 +403,9 @@ func online_clear_remote_players() -> void:
 
 
 func online_reset_to_offline(reason: String = "") -> void:
+	if not _client_entries_by_local_slot.empty():
+		_previous_client_entries_by_local_slot = _client_entries_by_local_slot.duplicate(true)
+	_client_entries_by_local_slot.clear()
 	# Leaving a Steam lobby must also release the local COOP topology that this
 	# manager created for online staging. Otherwise the next CharacterSelection
 	# scene can reopen in COOP with an empty/stale slot list, producing focus jumps
@@ -398,6 +423,7 @@ func online_reset_to_offline(reason: String = "") -> void:
 		_remove_remote_steam_id(str(steam_id))
 	_device_by_remote_steam_id.clear()
 	_remote_steam_id_by_device.clear()
+	_remote_local_slot_by_device.clear()
 	_remote_devices.clear()
 
 	if _is_in_official_coop_resume_scene():
@@ -469,28 +495,64 @@ func get_remote_steam_id(player_index: int) -> String:
 
 
 func get_player_index_for_steam_id(steam_id: String) -> int:
-	if not _device_by_remote_steam_id.has(steam_id):
+	var indices = get_player_indices_for_steam_id(steam_id)
+	return int(indices[0]) if not indices.empty() else -1
+
+
+func get_player_indices_for_steam_id(steam_id: String) -> Array:
+	var indices = []
+	if steam_id == "":
+		return indices
+	for i in range(CoopService.connected_players.size()):
+		if get_remote_steam_id(i) == steam_id:
+			indices.append(i)
+	return indices
+
+
+func resolve_owned_player_index(peer: String, requested: int = -1) -> int:
+	var indices = get_player_indices_for_steam_id(peer)
+	if requested >= 0:
+		return requested if indices.has(requested) else -1
+	return int(indices[0]) if indices.size() == 1 else -1
+
+
+func get_peer_local_slot(player_index: int) -> int:
+	if player_index < 0 or player_index >= CoopService.connected_players.size():
 		return -1
+	var device = int(CoopService.connected_players[player_index][0])
+	if is_remote_player_index(player_index):
+		return int(_remote_local_slot_by_device.get(device, 0))
+	if _local_mirrored_player_index >= 0:
+		for seat in _client_entries_by_local_slot:
+			if int(_client_entries_by_local_slot[seat][0]) == device:
+				return int(seat)
+	return get_local_player_indices().find(player_index)
 
-	var device = int(_device_by_remote_steam_id[steam_id])
-	return _get_player_index_for_device(device)
+
+func get_remote_slot_index(peer: String, local_slot: int) -> int:
+	for index in get_player_indices_for_steam_id(peer):
+		if get_peer_local_slot(int(index)) == local_slot:
+			return int(index)
+	return -1
 
 
-# Session peer keys are transport-agnostic despite the legacy variable names.
-# Rebind in place so a new Steam or LAN connection can take over a disconnected
-# in-run slot without rebuilding CoopService.connected_players.
+func is_local_player_index(player_index: int) -> bool:
+	return player_index >= 0 and player_index < CoopService.connected_players.size() and not is_remote_player_index(player_index)
+
+
 func rebind_remote_peer_key(old_peer_key: String, new_peer_key: String) -> int:
 	if old_peer_key == "" or new_peer_key == "" or old_peer_key == new_peer_key:
 		return get_player_index_for_steam_id(new_peer_key)
-	if not _device_by_remote_steam_id.has(old_peer_key):
-		return -1
-	if _device_by_remote_steam_id.has(new_peer_key):
+	if not get_player_indices_for_steam_id(new_peer_key).empty():
 		return get_player_index_for_steam_id(new_peer_key)
-	var device = int(_device_by_remote_steam_id[old_peer_key])
+	for device in _remote_steam_id_by_device:
+		if str(_remote_steam_id_by_device[device]) == old_peer_key:
+			_remote_steam_id_by_device[device] = new_peer_key
 	_device_by_remote_steam_id.erase(old_peer_key)
-	_device_by_remote_steam_id[new_peer_key] = device
-	_remote_steam_id_by_device[device] = new_peer_key
-	return _get_player_index_for_device(device)
+	var index = get_player_index_for_steam_id(new_peer_key)
+	if index >= 0:
+		_device_by_remote_steam_id[new_peer_key] = int(CoopService.connected_players[index][0])
+	return index
 
 
 func apply_host_selection_layout(selection_state: Dictionary, self_steam_id: String, host_steam_id: String = "", roster_change: bool = false) -> void:
@@ -508,11 +570,23 @@ func apply_host_selection_layout(selection_state: Dictionary, self_steam_id: Str
 	var new_remote_steam_id_by_device = {}
 	var new_device_by_remote_steam_id = {}
 	var new_remote_devices = []
+	var new_remote_local_slots = {}
+	var used_local_slots = []
 
 	var new_local_mirrored_player_index = -1
 	var matched_local_player_count = 0
-	var local_entry_for_layout = _get_preferred_local_player_entry(true)
+	if _client_entries_by_local_slot.empty():
+		_client_entries_by_local_slot[0] = _get_preferred_local_player_entry(true)
+	# A resumed run can assign several saved seats before the selection UI exists.
+	# Reuse this process's prior device choices, then assign unused real devices.
+	for player in players:
+		if str(player.get("steam_id", "")) == self_steam_id:
+			_ensure_client_device_for_saved_seat(int(player.get("local_slot", 0)))
+	var local_entry_for_layout = _client_entries_by_local_slot[0]
 	var reserved_local_devices = _get_connected_local_gamepad_remapped_devices()
+	for local_entry in _client_entries_by_local_slot.values():
+		if not local_entry.empty() and not reserved_local_devices.has(int(local_entry[0])):
+			reserved_local_devices.append(int(local_entry[0]))
 	if not local_entry_for_layout.empty():
 		var local_layout_device = int(local_entry_for_layout[0])
 		if not reserved_local_devices.has(local_layout_device):
@@ -524,7 +598,7 @@ func apply_host_selection_layout(selection_state: Dictionary, self_steam_id: Str
 
 	# Targeted layouts must never be consumed by another client. More importantly,
 	# treat layout application as a transaction: keep the last valid mirror until the
-	# incoming payload can identify exactly one local-owned slot.
+	# incoming payload can identify each local-owned seat and its device.
 	if self_steam_id != "" and target_client_steam_id != "" and target_client_steam_id != self_steam_id:
 		_bo_slot_diag_log("APPLY_HOST_LAYOUT_REJECT", "reason=wrong_target self=" + self_steam_id + " target=" + target_client_steam_id + " target_idx=" + str(target_client_player_index) + " old_idx=" + str(_local_mirrored_player_index))
 		return
@@ -555,13 +629,19 @@ func apply_host_selection_layout(selection_state: Dictionary, self_steam_id: Str
 		var player_type = CoopService.PlayerType.KEYBOARD_AND_MOUSE
 
 		if is_self:
+			var local_slot = int(player_data.get("local_slot", 0))
+			if used_local_slots.has(local_slot) or not _client_entries_by_local_slot.has(local_slot):
+				return
+			used_local_slots.append(local_slot)
+			local_entry_for_layout = _client_entries_by_local_slot[local_slot]
 			matched_local_player_count += 1
 			# 本机真实输入必须保留真实设备。旧逻辑强制写 keyboard device=7，
 			# 会让插着手柄的客户端/主机进入联机后只能用键盘槽位。
 			if not local_entry_for_layout.empty():
 				device = int(local_entry_for_layout[0])
 				player_type = int(local_entry_for_layout[1])
-			new_local_mirrored_player_index = player_index
+			if local_slot == 0 or new_local_mirrored_player_index < 0:
+				new_local_mirrored_player_index = player_index
 		else:
 			# 其他玩家只是显示/槽位占位，不接本机输入；使用官方已映射的 gamepad placeholder。
 			device = _get_next_remote_placeholder_device_from_lists(new_remote_devices, new_connected_players, reserved_local_devices)
@@ -579,7 +659,9 @@ func apply_host_selection_layout(selection_state: Dictionary, self_steam_id: Str
 				else:
 					remote_key = "unknown_remote_player_" + str(player_index)
 			new_remote_steam_id_by_device[device] = remote_key
-			new_device_by_remote_steam_id[remote_key] = device
+			new_remote_local_slots[device] = int(player_data.get("local_slot", 0))
+			if not new_device_by_remote_steam_id.has(remote_key):
+				new_device_by_remote_steam_id[remote_key] = device
 
 		new_connected_players.append([device, player_type])
 
@@ -587,7 +669,7 @@ func apply_host_selection_layout(selection_state: Dictionary, self_steam_id: Str
 		_bo_slot_diag_log("APPLY_HOST_LAYOUT_SKIP", "reason=new_empty self=" + self_steam_id + " host=" + host_steam_id + " players=" + _bo_slot_diag_players())
 		return
 
-	if matched_local_player_count != 1 or new_local_mirrored_player_index < 0 or new_local_mirrored_player_index >= new_connected_players.size():
+	if matched_local_player_count < 1 or new_local_mirrored_player_index < 0 or new_local_mirrored_player_index >= new_connected_players.size():
 		_bo_slot_diag_log("APPLY_HOST_LAYOUT_REJECT", "reason=invalid_local_slot self=" + self_steam_id + " host=" + host_steam_id + " target=" + target_client_steam_id + " target_idx=" + str(target_client_player_index) + " matched=" + str(matched_local_player_count) + " new_idx=" + str(new_local_mirrored_player_index) + " old_idx=" + str(_local_mirrored_player_index) + " incoming=" + str(players))
 		return
 
@@ -605,6 +687,7 @@ func apply_host_selection_layout(selection_state: Dictionary, self_steam_id: Str
 	_remote_steam_id_by_device = new_remote_steam_id_by_device
 	_device_by_remote_steam_id = new_device_by_remote_steam_id
 	_remote_devices = new_remote_devices
+	_remote_local_slot_by_device = new_remote_local_slots
 	_host_player_joined_by_manager = false
 
 	# Host selection_state is sent for focus/ready/selected changes too. The COOP slot
@@ -621,8 +704,11 @@ func apply_host_selection_layout(selection_state: Dictionary, self_steam_id: Str
 		CoopService.connected_players.append(player)
 
 	_sync_run_data_player_count()
+	_applying_client_layout = true
 	_bo_emit_connected_players_updated("generic_emit")
 	_refresh_current_character_selection_layout()
+	_applying_client_layout = false
+	_sync_client_join_listening()
 
 
 
@@ -742,12 +828,13 @@ func _restore_mirrored_connected_players_if_needed(reason: String = "") -> bool:
 	return true
 
 
-func _add_remote_steam_id(steam_id: String) -> int:
+func _add_remote_steam_id(steam_id: String, local_slot: int = 0) -> int:
 	if steam_id == "":
 		return -1
 
-	if _device_by_remote_steam_id.has(steam_id):
-		return get_player_index_for_steam_id(steam_id)
+	var existing = get_remote_slot_index(steam_id, local_slot)
+	if existing >= 0:
+		return existing
 
 	if _remote_devices.size() >= MAX_REMOTE_PLAYERS:
 		return -1
@@ -761,7 +848,9 @@ func _add_remote_steam_id(steam_id: String) -> int:
 
 	_remote_devices.append(device)
 	_remote_steam_id_by_device[device] = steam_id
-	_device_by_remote_steam_id[steam_id] = device
+	_remote_local_slot_by_device[device] = local_slot
+	if not _device_by_remote_steam_id.has(steam_id):
+		_device_by_remote_steam_id[steam_id] = device
 	CoopService._add_player(device, REMOTE_PLACEHOLDER_PLAYER_TYPE)
 	_sync_run_data_player_count()
 
@@ -770,17 +859,16 @@ func _add_remote_steam_id(steam_id: String) -> int:
 
 
 func _remove_remote_steam_id(steam_id: String) -> void:
-	if not _device_by_remote_steam_id.has(steam_id):
-		return
-
-	var device = int(_device_by_remote_steam_id[steam_id])
+	var indices = get_player_indices_for_steam_id(steam_id)
+	indices.invert()
+	for index in indices:
+		var device = int(CoopService.connected_players[int(index)][0])
+		_remote_steam_id_by_device.erase(device)
+		_remote_local_slot_by_device.erase(device)
+		_remote_devices.erase(device)
+		if CoopService.is_device_assigned(device):
+			CoopService._remove_player(device)
 	_device_by_remote_steam_id.erase(steam_id)
-	_remote_steam_id_by_device.erase(device)
-	_remote_devices.erase(device)
-
-	if CoopService.is_device_assigned(device):
-		CoopService._remove_player(device)
-
 	_sync_run_data_player_count()
 
 
@@ -1021,6 +1109,8 @@ func _maybe_replace_manager_keyboard_slot_with_gamepad() -> bool:
 
 
 func _maybe_replace_local_mirrored_keyboard_slot_with_gamepad() -> bool:
+	if _client_entries_by_local_slot.size() > 1:
+		return false
 	if _local_mirrored_player_index < 0:
 		return false
 	if _get_selected_local_input_device_mode() != INPUT_DEVICE_MODE_AUTO:
@@ -1045,6 +1135,7 @@ func _maybe_replace_local_mirrored_keyboard_slot_with_gamepad() -> bool:
 		return false
 
 	var replacement = [gamepad_device, int(gamepad_entry[1])]
+	_client_entries_by_local_slot[0] = replacement.duplicate()
 	CoopService.connected_players[idx] = replacement
 	if idx >= 0 and idx < _mirrored_connected_players.size():
 		_mirrored_connected_players[idx] = [replacement[0], replacement[1]]
@@ -1134,7 +1225,10 @@ func _migrate_remote_placeholder_for_local_device(local_device: int, reason: Str
 
 	_remote_steam_id_by_device.erase(local_device)
 	_remote_steam_id_by_device[replacement_device] = remote_key
-	_device_by_remote_steam_id[remote_key] = replacement_device
+	_remote_local_slot_by_device[replacement_device] = int(_remote_local_slot_by_device.get(local_device, 0))
+	_remote_local_slot_by_device.erase(local_device)
+	if int(_device_by_remote_steam_id.get(remote_key, -1)) == local_device:
+		_device_by_remote_steam_id[remote_key] = replacement_device
 	_remote_devices.erase(local_device)
 	if not _remote_devices.has(replacement_device):
 		_remote_devices.append(replacement_device)
@@ -1355,6 +1449,7 @@ func remove_online_player_slots(removed_indices: Array) -> void:
 		var peer_key = str(_remote_steam_id_by_device.get(device, ""))
 		_device_by_remote_steam_id.erase(peer_key)
 		_remote_steam_id_by_device.erase(device)
+		_remote_local_slot_by_device.erase(device)
 		_remote_devices.erase(device)
 		CoopService.connected_players.remove(index)
 		if _local_mirrored_player_index > index:
@@ -1375,3 +1470,71 @@ func apply_authoritative_roster(players: Array, self_peer_key: String, host_peer
 	_online_run_slots_locked = lock_run
 	if lock_run:
 		_online_run_connected_players_snapshot = _duplicate_connected_players(CoopService.connected_players)
+
+
+func _sync_client_join_listening() -> void:
+	if _local_mirrored_player_index < 0 or not _is_online_session_active():
+		return
+	var scene = get_tree().current_scene
+	CoopService.listening_for_inputs = not _is_slot_mutation_locked() and scene != null and str(scene.filename).ends_with("/character_selection.tscn") and CoopService.connected_players.size() < CoopService.get_max_players()
+
+
+func _capture_client_local_join() -> void:
+	if _is_slot_mutation_locked() or _mirrored_connected_players.empty():
+		return
+	var scene = get_tree().current_scene
+	if scene == null or not str(scene.filename).ends_with("/character_selection.tscn"):
+		return
+	var joining_entries = []
+	for entry in CoopService.connected_players:
+		var device = int(entry[0])
+		if _remote_steam_id_by_device.has(device):
+			continue
+		var known = false
+		for existing in _client_entries_by_local_slot.values():
+			if int(existing[0]) == device:
+				known = true
+		if not known:
+			joining_entries.append(entry.duplicate())
+	_applying_client_layout = true
+	CoopService.connected_players = _duplicate_connected_players(_mirrored_connected_players)
+	_bo_emit_connected_players_updated("client_join_pending")
+	_applying_client_layout = false
+	for entry in joining_entries:
+		var seat = 1
+		while _client_entries_by_local_slot.has(seat) and seat < 4:
+			seat += 1
+		if seat >= 4:
+			continue
+		_client_entries_by_local_slot[seat] = entry
+		emit_signal("client_local_join_requested", seat)
+
+
+func reject_client_local_join(local_slot: int) -> void:
+	if local_slot > 0:
+		# An old denial cannot remove a seat already committed by a newer layout.
+		for index in get_local_player_indices():
+			if get_peer_local_slot(int(index)) == local_slot:
+				return
+		_client_entries_by_local_slot.erase(local_slot)
+
+
+func _ensure_client_device_for_saved_seat(local_slot: int) -> void:
+	if local_slot < 0 or local_slot > 3 or _client_entries_by_local_slot.has(local_slot):
+		return
+	var candidates = []
+	if _previous_client_entries_by_local_slot.has(local_slot):
+		candidates.append(_previous_client_entries_by_local_slot[local_slot])
+	candidates.append([CoopService.KEYBOARD_REMAPPED_DEVICE_ID, CoopService.PlayerType.KEYBOARD_AND_MOUSE])
+	for joy in Input.get_connected_joypads():
+		candidates.append(_get_local_gamepad_entry_for_joypad(int(joy)))
+	for entry in candidates:
+		if entry.empty():
+			continue
+		var used = false
+		for existing in _client_entries_by_local_slot.values():
+			if int(existing[0]) == int(entry[0]):
+				used = true
+		if not used:
+			_client_entries_by_local_slot[local_slot] = entry.duplicate()
+			return

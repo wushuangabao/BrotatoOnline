@@ -335,7 +335,7 @@ func _capture_current_owners() -> Array:
 			owners.append({"owner_id": owner, "local_slot": local_slot})
 			local_slot += 1
 		else:
-			owners.append({"owner_id": owner, "local_slot": 0})
+			owners.append({"owner_id": owner, "local_slot": _slots().get_peer_local_slot(index)})
 	return owners
 
 
@@ -487,8 +487,16 @@ func _candidates() -> Array:
 	for peer in _session()._connection_by_peer_key.keys():
 		if str(peer) == host:
 			continue
-		var label = _owner_label(str(peer))
-		result.append({"owner_id": str(peer), "local_slot": 0, "label": label})
+		var seats = [0]
+		for slot in registry.slots:
+			if str(slot.owner_id) == str(peer) and not seats.has(int(slot.local_slot)):
+				seats.append(int(slot.local_slot))
+		for index in _slots().get_player_indices_for_steam_id(str(peer)):
+			var seat = _slots().get_peer_local_slot(int(index))
+			if not seats.has(seat):
+				seats.append(seat)
+		for seat in seats:
+			result.append({"owner_id": str(peer), "local_slot": int(seat), "label": _owner_label(str(peer)) + " / " + str(int(seat) + 1)})
 	return result
 
 
@@ -612,7 +620,7 @@ func _try_commit(manual: bool) -> void:
 		elif not manual and key.begins_with("lan:") and str(owner.get("resume_hash", "")) == "":
 			_resume_problem("BROTATO_ONLINE_IDENTITY_PROOF_MISSING")
 			return
-		if key != host and (local_slot != 0 or not _session()._connection_by_peer_key.has(key)):
+		if key != host and (local_slot < 0 or local_slot > 3 or not _session()._connection_by_peer_key.has(key)):
 			_resume_problem("BROTATO_ONLINE_IDENTITY_NOT_CONNECTED", [_owner_label(key)])
 			return
 		if key != host and not _session()._seen_client_hello_by_steam_id.has(key):

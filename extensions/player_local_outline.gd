@@ -130,7 +130,7 @@ func _brotato_online_apply_local_character_outline() -> void:
 	if settings_manager.has_method("get_local_character_outline_enabled"):
 		local_outline_enabled = bool(settings_manager.call("get_local_character_outline_enabled"))
 
-	var is_local_player = int(player_index) == local_index
+	var is_local_player = bool(settings_manager.call("is_local_player_index", int(player_index)))
 	if is_local_player and local_outline_enabled:
 		_brotato_online_add_or_update_local_outline()
 	else:

@@ -365,6 +365,13 @@ func is_online_session_active() -> bool:
 	return bool(tree.root.get_meta("brotato_online_session_active", false))
 
 
+func is_local_player_index(index: int) -> bool:
+	var slots = _get_slot_manager()
+	if slots != null and slots.has_method("is_local_player_index"):
+		return slots.is_local_player_index(index)
+	return index >= 0 and index == get_local_player_index()
+
+
 func get_local_player_index() -> int:
 	var slot_manager = _get_slot_manager()
 	if slot_manager != null and slot_manager.has_method("get_local_mirrored_player_index"):
@@ -1654,8 +1661,7 @@ func _apply_outline_to_player(player) -> void:
 
 	var should_outline = false
 	if _local_character_outline_enabled and _is_online_coop_battle_player(player):
-		var local_index = get_local_player_index()
-		if local_index >= 0 and int(player.get("player_index")) == local_index:
+		if is_local_player_index(int(player.get("player_index"))):
 			should_outline = true
 
 	if should_outline:

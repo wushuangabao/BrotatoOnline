@@ -222,7 +222,7 @@ func _brotato_online_is_owned_client_player(p_player: Node) -> bool:
 	if local_index < 0 or player_index < 0:
 		# If ownership cannot be resolved, keep the old behavior instead of hiding a real local death.
 		return true
-	return player_index == local_index
+	return _brotato_online_get_slot_manager().is_local_player_index(player_index)
 
 
 func _brotato_online_send_client_player_death(p_player: Node, reason: String) -> void:
@@ -1017,11 +1017,7 @@ func _handle_manual_aim_visuals() -> void:
 
 	var slot_manager = _brotato_online_get_slot_manager()
 	var local_indices = []
-	if slot_manager != null and slot_manager.has_method("get_local_mirrored_player_index"):
-		var mirrored_index = int(slot_manager.get_local_mirrored_player_index())
-		if mirrored_index >= 0:
-			local_indices.append(mirrored_index)
-	if local_indices.empty() and slot_manager != null and slot_manager.has_method("get_local_player_indices"):
+	if slot_manager != null:
 		local_indices = slot_manager.get_local_player_indices()
 
 	var keyboard_mouse_aim = false
@@ -1235,7 +1231,7 @@ func bo_receive_pickups(msg: Dictionary, sender: int, peer: String) -> void:
 		var kind = str(row[1])
 		if idx < 0 or idx >= RunData.get_player_count() or not BO_SPECIALS.has(kind):
 			continue
-		if sender >= 0 and (bool(row[4]) or idx != sender or _bo_known.get(id, "") != BO_SPECIALS[kind]):
+		if sender >= 0 and (bool(row[4]) or _brotato_online_get_slot_manager().resolve_owned_player_index(peer, idx) != idx or _bo_known.get(id, "") != BO_SPECIALS[kind]):
 			continue
 		var key = str(idx) + ":" + id
 		if _bo_received.has(key):
@@ -1291,7 +1287,7 @@ func _bo_apply_remote_reward(kind: String, idx: int, full_hp: bool) -> void:
 
 func _bo_owns_pickup_slot(idx: int) -> bool:
 	if _brotato_online_is_online_client():
-		return idx == _brotato_online_get_local_client_player_index()
+		return _brotato_online_get_slot_manager().is_local_player_index(idx)
 	var slots = _brotato_online_get_slot_manager()
 	return slots != null and slots.get_local_player_indices().has(idx)
 

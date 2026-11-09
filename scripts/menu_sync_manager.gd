@@ -147,6 +147,9 @@ var _shop_input_guard_instance_id = 0
 var _shop_input_guard_until_msec = 0
 var _shop_input_guard_wait_release = false
 var _client_shop_intercept_key = ""
+var _client_shop_intercept_keys = {}
+var _client_progression_intercept_ids = {}
+var _local_focus_keys = {}
 var _last_shop_purchase_receipt_by_player = {}
 var _pending_shop_purchase_repair_by_player = {}
 var _next_host_shop_state_revision = 1
@@ -472,6 +475,7 @@ func _reset_run_page_runtime_state_for_game_start(clear_queued_actions: bool = t
 	_local_shop_go_pending_until_by_player.clear()
 	_last_local_shop_focus_key.clear()
 	_last_shop_focus_target_by_player.clear()
+	_client_shop_intercept_keys.clear()
 	_client_shop_intercept_key = ""
 	_host_shop_go_intercept_key.clear()
 	_host_shop_item_observer_key.clear()
@@ -494,6 +498,7 @@ func _reset_run_page_runtime_state_for_game_start(clear_queued_actions: bool = t
 	_shop_state_cache_instance_id = 0
 	_missing_host_item_placeholder_cache.clear()
 	_reset_shop_inventory_custom_button_runtime_state()
+	_client_progression_intercept_ids.clear()
 	_client_progression_intercept_container_id = 0
 	_last_local_run_page_focus_key.clear()
 	_last_local_run_page_state_key_by_player.clear()
@@ -647,7 +652,7 @@ func receive_menu_message(from_steam_id: String, message: Dictionary) -> void:
 
 	var player_index = -1
 	if slot_manager.has_method("get_player_index_for_steam_id"):
-		player_index = int(slot_manager.get_player_index_for_steam_id(from_steam_id))
+		player_index = slot_manager.resolve_owned_player_index(from_steam_id, int(message.get("player_index", -1)))
 
 	if player_index < 0:
 		return
@@ -687,6 +692,7 @@ func consume_local_client_menu_messages() -> Array:
 		_last_local_selection_instance_id = selection_instance_id
 		_invalidate_selection_element_cache()
 		_last_sent_local_focus_key = ""
+		_local_focus_keys.clear()
 		_last_sent_local_select_key = ""
 		_last_sent_character_select_guard_key = ""
 		_last_sent_character_select_guard_msec = 0
@@ -702,20 +708,17 @@ func consume_local_client_menu_messages() -> Array:
 	_disable_selection_buttons(selection, false)
 	_try_apply_online_catalog_to_current_selection()
 
-	var player_index = _get_local_client_player_index()
-	if player_index < 0 or player_index >= RunData.get_player_count():
-		return messages
-	_enable_only_local_inventory_mouse_focus(selection, player_index)
-	_configure_online_focus_emulator_input_owner(player_index, "selection_client")
-	_install_client_press_intercept(selection, screen, player_index)
-	_ensure_local_client_focus_exists(selection)
-
+	var local_indices = _get_local_client_player_indices()
+	_configure_online_focus_emulator_input_owners(local_indices, "selection_client")
+	for player_index in local_indices:
+		_install_client_press_intercept(selection, screen, int(player_index))
+		_ensure_local_client_focus_exists(selection, int(player_index))
+		var focus_msg = _build_local_focus_current_message(selection, screen, int(player_index))
+		if not focus_msg.empty():
+			messages.append(focus_msg)
+	_enable_only_local_inventory_mouse_focus(selection, _get_local_keyboard_player_index())
 	while not _queued_local_client_menu_messages.empty():
 		messages.append(_queued_local_client_menu_messages.pop_front())
-
-	var focus_msg = _build_local_focus_current_message(selection, screen, player_index)
-	if typeof(focus_msg) == TYPE_DICTIONARY and not focus_msg.empty():
-		messages.append(focus_msg)
 
 	# Selection is sent by _on_client_inventory_element_pressed before the vanilla selection
 	# code can mark this client ready, avoiding a local green-check flash.
@@ -735,12 +738,14 @@ func _build_local_focus_current_message(selection: Node, screen: String, player_
 		return {}
 
 	var key = screen + ":" + str(player_index) + ":" + item_id
-	if key == _last_sent_local_focus_key:
+	if key == str(_local_focus_keys.get(player_index, "")):
 		return {}
 
 	_last_sent_local_focus_key = key
+	_local_focus_keys[player_index] = key
 	return {
 		"msg_type": "menu_focus",
+		"player_index": player_index,
 		"screen": screen,
 		"item_id": item_id,
 		"item_id_hash": item_state.get("id_hash", ""),
@@ -1051,6 +1056,7 @@ func _poll_shop_page_state_and_intercepts() -> void:
 	if not _is_valid_shop_node(shop):
 		_reset_shop_state_diff_cache()
 		_last_local_shop_focus_key.clear()
+		_client_shop_intercept_keys.clear()
 		_client_shop_intercept_key = ""
 		_host_shop_go_intercept_key.clear()
 		_host_shop_item_observer_key.clear()
@@ -1092,15 +1098,15 @@ func _poll_shop_page_state_and_intercepts() -> void:
 
 	_try_apply_pending_shop_state()
 
-	var local_player_index = _get_local_client_player_index()
-	if local_player_index < 0:
-		return
-	_configure_online_focus_emulator_input_owner(local_player_index, "shop_client")
-	# Client shop movement stays vanilla; this manager only intercepts mutating actions.
-	_install_client_shop_intercepts(shop, local_player_index)
-	_ensure_shop_inventory_popup_wiring_for_player(shop, local_player_index, true)
-	if not _ensure_shop_focus_event_wiring(shop, local_player_index):
-		_queue_shop_focus_if_changed(local_player_index)
+	var local_indices = _get_local_client_player_indices()
+	_configure_online_focus_emulator_input_owners(local_indices, "shop_client")
+	for local_player_index in local_indices:
+
+		# Client shop movement stays vanilla; this manager only intercepts mutating actions.
+		_install_client_shop_intercepts(shop, local_player_index)
+		_ensure_shop_inventory_popup_wiring_for_player(shop, local_player_index, true)
+		if not _ensure_shop_focus_event_wiring(shop, local_player_index):
+			_queue_shop_focus_if_changed(local_player_index)
 
 
 func _ensure_shop_focus_event_wiring(shop: Node, player_index: int) -> bool:
@@ -1127,7 +1133,7 @@ func _on_shop_focused_control_changed(focused_control, player_index: int) -> voi
 	if _is_game_host():
 		if not _get_host_local_player_indices().has(player_index):
 			return
-	elif player_index != _get_local_client_player_index():
+	elif not _is_local_client_player_index(player_index):
 		return
 	var shop = _find_shop_node()
 	if not _is_valid_shop_node(shop):
@@ -1651,9 +1657,10 @@ func _install_client_shop_intercepts_base(shop: Node, player_index: int) -> void
 	if not _is_valid_shop_node(shop):
 		return
 	var key = str(shop.get_instance_id()) + ":" + str(player_index)
-	if key == _client_shop_intercept_key:
+	if key == str(_client_shop_intercept_keys.get(player_index, "")):
 		return
 	_client_shop_intercept_key = key
+	_client_shop_intercept_keys[player_index] = key
 
 	var reroll_button = shop._get_reroll_button(player_index) if shop.has_method("_get_reroll_button") else null
 	if _is_live_ref(reroll_button):
@@ -2034,7 +2041,7 @@ func _take_shop_state_revision() -> int:
 func _is_stale_shop_state(state: Dictionary) -> bool:
 	# Receipts and private repairs cover this client's own optimistic actions.
 	# Other players continue through the existing observer synchronization path.
-	if int(state.get("player_index", -1)) != _get_local_client_player_index():
+	if not _is_local_client_player_index(int(state.get("player_index", -1))):
 		return false
 	var revision = int(state.get("shop_state_revision", 0))
 	return revision > 0 and revision < int(_last_host_shop_state_revision_by_player.get(int(state.get("player_index", -1)), 0))
@@ -2651,7 +2658,7 @@ func _force_rebuild_shop_gear_container(shop: Node, player_index: int) -> void:
 		gear_container.set_weapons_data(RunData.get_player_weapons(player_index))
 	if gear_container.has_method("set_items_data"):
 		gear_container.set_items_data(RunData.get_player_items(player_index))
-	_ensure_shop_inventory_popup_wiring_for_player(shop, player_index, not _is_game_host() and player_index == _get_local_client_player_index())
+	_ensure_shop_inventory_popup_wiring_for_player(shop, player_index, not _is_game_host() and _is_local_client_player_index(player_index))
 
 
 func _apply_shop_reroll_action(player_index: int, _message: Dictionary) -> bool:
@@ -3179,7 +3186,7 @@ func _apply_shop_delta_state_to_ui(shop: Node, state: Dictionary) -> bool:
 	if _is_live_ref(container_after):
 		container_after.item_steals = int(state.get("item_steals", _safe_get(container_after, "item_steals", 0)))
 		container_after.update_buttons_color()
-		if not _is_game_host() and player_index == _get_local_client_player_index():
+		if not _is_game_host() and _is_local_client_player_index(player_index):
 			_intercept_client_shop_item_buttons(container_after, player_index)
 	if shop.has_method("set_reroll_button_price") and state.has("reroll_price"):
 		shop.set_reroll_button_price(player_index)
@@ -3195,7 +3202,7 @@ func _apply_shop_delta_state_to_ui(shop: Node, state: Dictionary) -> bool:
 			_last_applied_shop_gear_key_by_player.erase(shop_player_key)
 			_force_rebuild_shop_gear_container(shop, player_index)
 		else:
-			_ensure_shop_inventory_popup_wiring_for_player(shop, player_index, not _is_game_host() and player_index == _get_local_client_player_index())
+			_ensure_shop_inventory_popup_wiring_for_player(shop, player_index, not _is_game_host() and _is_local_client_player_index(player_index))
 
 	var checkmark = shop._get_checkmark(player_index) if shop.has_method("_get_checkmark") else null
 	if _is_live_ref(checkmark) and state.has("pressed_go"):
@@ -3432,7 +3439,7 @@ func _apply_shop_player_state_to_ui_base(shop: Node, state: Dictionary) -> bool:
 		if shop_slots_changed:
 			_apply_shop_state_entries_to_container(container, item_entries, player_index)
 		container.update_buttons_color()
-		if not _is_game_host() and player_index == _get_local_client_player_index():
+		if not _is_game_host() and _is_local_client_player_index(player_index):
 			_intercept_client_shop_item_buttons(container, player_index)
 	if shop.has_method("set_reroll_button_price"):
 		shop.set_reroll_button_price(player_index)
@@ -3466,7 +3473,7 @@ func _apply_shop_gear_state_if_changed(shop: Node, gear_container, player_index:
 		key = _build_shop_gear_state_key(player_index)
 	var shop_key = str(shop.get_instance_id()) + ":" + str(player_index)
 	if str(_last_applied_shop_gear_key_by_player.get(shop_key, "")) == key:
-		_ensure_shop_inventory_popup_wiring_for_player(shop, player_index, not _is_game_host() and player_index == _get_local_client_player_index())
+		_ensure_shop_inventory_popup_wiring_for_player(shop, player_index, not _is_game_host() and _is_local_client_player_index(player_index))
 		return
 
 	# set_weapons_data()/set_items_data() rebuild InventoryElement nodes. Rebuilding them
@@ -3478,7 +3485,7 @@ func _apply_shop_gear_state_if_changed(shop: Node, gear_container, player_index:
 	if _is_live_ref(_safe_get(gear_container, "items_container", null)):
 		gear_container.set_items_data(RunData.get_player_items(player_index))
 
-	_ensure_shop_inventory_popup_wiring_for_player(shop, player_index, not _is_game_host() and player_index == _get_local_client_player_index())
+	_ensure_shop_inventory_popup_wiring_for_player(shop, player_index, not _is_game_host() and _is_local_client_player_index(player_index))
 
 
 func _build_shop_gear_state_key(player_index: int) -> String:
@@ -6612,7 +6619,7 @@ func _normalize_serialized_inventory_placeholder_state(serialized: Dictionary, d
 func _should_preserve_client_local_player_runtime_state(player_index: int) -> bool:
 	if _is_game_host():
 		return false
-	return player_index >= 0 and player_index == _get_local_client_player_index()
+	return player_index >= 0 and _is_local_client_player_index(player_index)
 
 
 func _poll_progression_page_focus_and_state() -> void:
@@ -6620,6 +6627,7 @@ func _poll_progression_page_focus_and_state() -> void:
 		return
 	var ui = _find_progression_ui(true)
 	if not _is_valid_progression_ui_visible(ui):
+		_client_progression_intercept_ids.clear()
 		_client_progression_intercept_container_id = 0
 		_reward_resource_cache.clear()
 		_last_local_run_page_state_key_by_player.clear()
@@ -6639,16 +6647,16 @@ func _poll_progression_page_focus_and_state() -> void:
 			_queue_progression_focus_if_changed(int(host_player_index), ui)
 		return
 
-	var local_player_index = _get_local_client_player_index()
-	if local_player_index < 0:
-		return
-	_configure_online_focus_emulator_input_owner(local_player_index, "progression_client")
-	var container = _get_progression_player_container(ui, local_player_index)
-	if not _is_live_ref(container):
-		return
-	_install_client_progression_press_intercept(container, local_player_index)
-	_ensure_local_progression_focus(container, local_player_index, "poll")
-	_queue_progression_focus_if_changed(local_player_index, ui)
+	var local_indices = _get_local_client_player_indices()
+	_configure_online_focus_emulator_input_owners(local_indices, "progression_client")
+	for local_player_index in local_indices:
+
+		var container = _get_progression_player_container(ui, local_player_index)
+		if not _is_live_ref(container):
+			continue
+		_install_client_progression_press_intercept(container, local_player_index)
+		_ensure_local_progression_focus(container, local_player_index, "poll")
+		_queue_progression_focus_if_changed(local_player_index, ui)
 
 
 func _ensure_host_item_box_take_sync_connection(ui: Node) -> void:
@@ -6752,11 +6760,12 @@ func refresh_progression_for_join() -> void:
 func request_missing_reward_state(ui: Node, container: Node, mode: String) -> void:
 	if str(container.get_meta("bo_confirmed_reward_mode", "")) == mode:
 		return
-	var idx = _get_local_client_player_index()
+	var idx = int(container.player_index)
 	var now = OS.get_ticks_msec()
-	if idx < 0 or now - int(ui.get_meta("bo_reward_request_msec", -1000)) < 1000:
+	var request_key = "bo_reward_request_msec_" + str(idx)
+	if not _is_local_client_player_index(idx) or now - int(ui.get_meta(request_key, -1000)) < 1000:
 		return
-	ui.set_meta("bo_reward_request_msec", now)
+	ui.set_meta(request_key, now)
 	_queue_local_run_page_action({"msg_type": "run_page_action_sync", "action_type": "upgrade_state_request", "screen": "progression", "player_index": idx})
 
 func _progression_state_key(state: Dictionary) -> String:
@@ -6839,9 +6848,10 @@ func _install_client_progression_press_intercept(container: Node, player_index: 
 	if not _is_live_ref(container):
 		return
 	var container_id = container.get_instance_id()
-	if _client_progression_intercept_container_id == container_id:
+	if int(_client_progression_intercept_ids.get(player_index, 0)) == container_id:
 		return
 	_client_progression_intercept_container_id = container_id
+	_client_progression_intercept_ids[player_index] = container_id
 
 	var upgrade_uis = []
 	if container.has_method("_get_upgrade_uis"):
@@ -6904,7 +6914,7 @@ func _install_client_progression_press_intercept(container: Node, player_index: 
 func ensure_client_progression_interaction_ready(container: Node, player_index: int, reason: String = "") -> void:
 	if _is_game_host():
 		return
-	if player_index != _get_local_client_player_index():
+	if not _is_local_client_player_index(player_index):
 		return
 	if not _is_live_ref(container):
 		return
@@ -6915,7 +6925,7 @@ func ensure_client_progression_interaction_ready(container: Node, player_index: 
 func _ensure_local_progression_focus(container: Node, player_index: int, reason: String = "") -> void:
 	if _is_game_host() or _applying_remote_run_page_action:
 		return
-	if player_index != _get_local_client_player_index():
+	if not _is_local_client_player_index(player_index):
 		return
 	if not _is_live_ref(container):
 		return
@@ -7002,7 +7012,7 @@ func _get_default_progression_focus_control(container: Node):
 func _on_client_upgrade_choose_button_pressed(upgrade_data: UpgradeData, player_index: int, upgrade_index: int) -> void:
 	if _applying_remote_run_page_action:
 		return
-	if _is_game_host() or player_index != _get_local_client_player_index():
+	if _is_game_host() or not _is_local_client_player_index(player_index):
 		return
 	var visible = _build_progression_visible_option(player_index)
 	var msg = {
@@ -7025,7 +7035,7 @@ func _on_client_upgrade_choose_button_pressed(upgrade_data: UpgradeData, player_
 func _on_client_upgrade_reroll_pressed(player_index: int) -> void:
 	if _applying_remote_run_page_action:
 		return
-	if _is_game_host() or player_index != _get_local_client_player_index():
+	if _is_game_host() or not _is_local_client_player_index(player_index):
 		return
 	var visible = _build_progression_visible_option(player_index)
 	_queue_local_run_page_action({
@@ -7054,7 +7064,7 @@ func _on_client_item_box_ban_signal(_item_data, player_index: int) -> void:
 func _queue_client_item_box_action(action_type: String, player_index: int) -> void:
 	if _applying_remote_run_page_action:
 		return
-	if _is_game_host() or player_index != _get_local_client_player_index():
+	if _is_game_host() or not _is_local_client_player_index(player_index):
 		return
 	var visible = _build_progression_visible_option(player_index)
 	if str(visible.get("mode", "")) != "item_box":
@@ -7516,7 +7526,7 @@ func _apply_progression_visible_option_to_ui(player_index: int, visible: Diction
 		var ok = _apply_upgrade_options_to_progression_container(container, player_index, visible)
 		if ok:
 			container.set_meta("bo_confirmed_reward_mode", mode)
-		if ok and not _is_game_host() and player_index == _get_local_client_player_index():
+		if ok and not _is_game_host() and _is_local_client_player_index(player_index):
 			ensure_client_progression_interaction_ready(container, player_index, "apply_upgrade_state")
 		return ok
 	elif mode == "item_box":
@@ -7524,7 +7534,7 @@ func _apply_progression_visible_option_to_ui(player_index: int, visible: Diction
 		var item_ok = _apply_item_box_option_to_progression_container(container, player_index, visible)
 		if item_ok:
 			container.set_meta("bo_confirmed_reward_mode", mode)
-		if item_ok and not _is_game_host() and player_index == _get_local_client_player_index():
+		if item_ok and not _is_game_host() and _is_local_client_player_index(player_index):
 			ensure_client_progression_interaction_ready(container, player_index, "apply_item_box_state")
 		return item_ok
 	elif mode == "hidden" or mode == "idle" or mode == "none":
@@ -8160,20 +8170,12 @@ func _get_run_player_count() -> int:
 
 
 func _resolve_run_page_action_player_index(origin_steam_id: String, from_steam_id: String, self_steam_id: String, message: Dictionary) -> int:
-	var slot_manager = _get_slot_manager()
-	if origin_steam_id == "" or origin_steam_id == self_steam_id:
-		return int(message.get("player_index", 0))
-	var host_steam_id = _get_game_host_steam_id()
-	# One Steam peer can own several Host-local players. Do not collapse every
-	# Host-origin shop/upgrade action to P0 on clients; trust the authoritative
-	# player_index carried in the Host packet.
-	if host_steam_id != "" and origin_steam_id == host_steam_id:
-		return int(message.get("player_index", 0))
-	if slot_manager != null and slot_manager.has_method("get_player_index_for_steam_id"):
-		var mapped = int(slot_manager.get_player_index_for_steam_id(origin_steam_id))
-		if mapped >= 0:
-			return mapped
-	return int(message.get("player_index", -1))
+	if not _is_game_host():
+		return int(message.get("player_index", -1))
+	if from_steam_id == self_steam_id:
+		return int(message.get("player_index", -1))
+	var slots = _get_slot_manager()
+	return slots.resolve_owned_player_index(from_steam_id, int(message.get("player_index", -1))) if slots != null else -1
 
 
 func _build_all_progression_visible_options(ui: Node = null, include_marker_state: bool = false) -> Array:
@@ -8683,7 +8685,8 @@ func _build_slot_layout_for_scene_sync() -> Dictionary:
 		players.append({
 			"player_index": player_index,
 			"remote": is_remote,
-			"steam_id": steam_id
+			"steam_id": steam_id,
+			"local_slot": slot_manager.get_peer_local_slot(player_index) if slot_manager != null else 0
 		})
 
 	return {
@@ -10289,7 +10292,7 @@ func _reset_local_select_dedup_for_player(player_index: int) -> void:
 	if _local_client_steam_id == "":
 		return
 	var local_player_index = _get_local_client_player_index()
-	if local_player_index < 0 or local_player_index == player_index:
+	if local_player_index < 0 or _is_local_client_player_index(player_index):
 		_last_sent_local_select_key = ""
 
 
@@ -10307,8 +10310,7 @@ func _on_client_inventory_element_pressed(element, selection: Node, screen: Stri
 	var player_index = FocusEmulatorSignal.get_player_index(element)
 	if player_index < 0:
 		player_index = inventory_player_index
-	var local_player_index = _get_local_client_player_index()
-	if player_index != local_player_index:
+	if not _is_local_client_player_index(player_index):
 		return
 
 	var item_state = _element_to_state(element)
@@ -10318,7 +10320,7 @@ func _on_client_inventory_element_pressed(element, selection: Node, screen: Stri
 		if screen == SCREEN_WEAPON_SELECTION and not _get_player_catalog(screen, player_index).empty() and _get_host_selectable_states_for_player(screen, player_index).empty():
 			# Vanilla accepts the random tile even when every starting option is locked.
 			# Send the intent; the Host rechecks its own options and invokes vanilla.
-			_queued_local_client_menu_messages.append({"msg_type": "select_weapon", "screen": screen, "random_empty": true})
+			_queued_local_client_menu_messages.append({"msg_type": "select_weapon", "screen": screen, "player_index": player_index, "random_empty": true})
 			_clear_client_local_ready_after_send(selection, player_index)
 			return
 		concrete_element = _pick_random_host_selectable_element(selection, screen, player_index)
@@ -10348,6 +10350,7 @@ func _on_client_inventory_element_pressed(element, selection: Node, screen: Stri
 		_last_sent_character_select_guard_msec = now_msec
 	_queued_local_client_menu_messages.append({
 		"msg_type": msg_type,
+		"player_index": player_index,
 		"screen": screen,
 		"item_id": item_id,
 		"item_id_hash": item_state.get("id_hash", ""),
@@ -11155,6 +11158,7 @@ func build_selection_state() -> Dictionary:
 			"player_index": player_index,
 			"remote": is_remote,
 			"steam_id": steam_id,
+			"local_slot": slot_manager.get_peer_local_slot(player_index) if slot_manager != null else 0,
 			"focus": _element_to_state(focus_element),
 			"selected": selected_state,
 			"ready": ready
@@ -11252,8 +11256,9 @@ func _apply_focus_element(selection: Node, player_index: int, element) -> void:
 	_last_apply_focus_callback_usec = OS.get_ticks_usec() - stage_start_usec
 
 
-func _ensure_local_client_focus_exists(selection: Node) -> void:
-	var player_index = _get_local_client_player_index()
+func _ensure_local_client_focus_exists(selection: Node, player_index: int = -1) -> void:
+	if player_index < 0:
+		player_index = _get_local_client_player_index()
 	if player_index < 0 or player_index >= RunData.get_player_count():
 		return
 
@@ -11291,16 +11296,9 @@ func _enforce_focus_change_cancels_ready_on_current_selection() -> void:
 	if typeof(selected_flags) != TYPE_ARRAY:
 		return
 
-	var first_player = 0
-	var last_player = RunData.get_player_count() - 1
-	if _local_client_steam_id != "":
-		var local_idx = _get_local_client_player_index()
-		if local_idx < 0:
-			return
-		first_player = local_idx
-		last_player = local_idx
-
-	for player_index in range(first_player, last_player + 1):
+	for player_index in range(RunData.get_player_count()):
+		if _local_client_steam_id != "" and not _is_local_client_player_index(player_index):
+			continue
 		if player_index < 0 or player_index >= selected_flags.size():
 			continue
 		if not bool(selected_flags[player_index]):
@@ -12178,3 +12176,22 @@ func _on_host_meca_upgrade_observed(_source, _upgraded, index: int) -> void:
 		return
 	_mark_host_shop_run_data_dirty(index)
 	_schedule_host_local_shop_state_sync(index, "shop_meca_upgrade", "host_meca_upgrade")
+
+
+func _get_local_client_player_indices() -> Array:
+	var slots = _get_slot_manager()
+	if slots != null and slots.get_local_mirrored_player_index() >= 0:
+		return slots.get_local_player_indices()
+	var primary = _get_local_client_player_index()
+	return [primary] if primary >= 0 else []
+
+
+func _is_local_client_player_index(index: int) -> bool:
+	return _get_local_client_player_indices().has(index)
+
+
+func _get_local_keyboard_player_index() -> int:
+	for index in _get_local_client_player_indices():
+		if not Utils.is_player_using_gamepad(int(index)):
+			return int(index)
+	return _get_local_client_player_index()
