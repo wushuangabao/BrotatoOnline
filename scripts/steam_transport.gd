@@ -119,13 +119,14 @@ func receive_packets(channel: int, limit: int) -> Array:
 	return []
 
 
+func _get_steam_singleton():
+	return Engine.get_singleton("Steam") if Engine.has_singleton("Steam") else null
+
+
 func _setup_steam() -> void:
 	_ready = false
 	_steam = null
-	if not Engine.has_singleton("Steam"):
-		return
-
-	var steam = Engine.get_singleton("Steam")
+	var steam = _get_steam_singleton()
 	if steam == null:
 		return
 
@@ -135,6 +136,15 @@ func _setup_steam() -> void:
 	if steam.has_method("isSteamRunning"):
 		var steam_running = steam.isSteamRunning()
 		if typeof(steam_running) == TYPE_BOOL and not bool(steam_running):
+			return
+
+	# Brotato or another integration may already own Steam initialization. Reuse
+	# that live API instead of reinitializing it and replacing its callback setup.
+	if steam.has_method("getSteamID"):
+		var existing_id = str(steam.getSteamID())
+		if existing_id != "" and existing_id != "0":
+			_steam = steam
+			_ready = true
 			return
 
 	var init_ok = true

@@ -74,6 +74,8 @@ The LAN suite launches two independent Godot processes. A controlled wave-21 fix
 
 ## Native wave settlement while the client is late
 
+Steam initialization can be checked independently with `./tests/Test-SteamTransportInit.ps1`. This runs the production transport in a minimal Godot project with controlled Steam API doubles, covering existing initialization, repeated setup, callback deduplication, fresh/legacy initialization, failures, missing singleton and Steam not running. It does not verify a real Steam login or Steam networking.
+
 ```powershell
 foreach ($mode in 'end', 'harvest', 'wave', 'rewards', 'endless', 'cleanup') {
     ./tests/Test-WaveSettlementLan.ps1 -ProjectPath E:/github/BrotatoMod/RecoveredProject -Mode $mode

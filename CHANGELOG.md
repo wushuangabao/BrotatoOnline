@@ -2,6 +2,7 @@
 
 ## 6.8.1 — 2026-11-09 — 波次结算同步修复
 
+- Steam 已初始化且可取得有效 Steam ID 时直接复用现有实例，不再重复调用 `steamInitEx()` / `steamInit()`；未就绪时保留原有初始化及 LAN 回退流程。此修订沿用 6.8.1 并重新打包。
 - 房主先进入商店时，客户端等待本机波末效果、收获计时器与 `RunData.on_wave_end()` 完成，再应用房主最终状态和切换场景，保留本地回调、步数进度及每波计数清理。
 - 成功结束战斗的房主终态先于客户端计时器到达时，客户端仍执行原版波末效果；三个结算计时器入口增加单波去重，避免重复奖励和副作用。
 - 场景同步补充未拾取材料账本 `bonus_gold` / `total_bonus_gold`。随机变异和恐龙蛋仍由房主结算并同步，客户端不重复抽取。
@@ -9,6 +10,8 @@
 - Mod ID 保持 `wushuangabao-BrotatoOnlineFriends`，网络协议保持 `6.5.0`；房主和所有客户端均应更新至 6.8.1，确保各端都具备本次结算修复。
 
 Clients now finish native local wave settlement before applying the host's shop state. Successful cleanup entries execute native wave-end effects, duplicate timer callbacks are ignored, and scene synchronization includes the leftover-material ledger. Host-owned mutation and dinosaur-egg results remain authoritative. The Mod ID and wire protocol remain unchanged; update every peer to 6.8.1 so all peers receive these fixes.
+
+The revised 6.8.1 package also reuses an already initialized Steam instance with a valid Steam ID, avoiding repeated initialization while retaining initialization and LAN fallback for unavailable instances.
 
 ## 6.8.0 — 2026-11-09 — Brotato Online Friends
 
