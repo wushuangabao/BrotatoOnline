@@ -1,65 +1,78 @@
 [h1]Brotato Online Friends[/h1]
 
-An unofficial, independently maintained fork of Brotato Online by six666. It focuses on trusted multiplayer between friends, with more responsive client shops, synchronization fixes, and support for multiple local players on a client.
+This Mod is an unofficial, independently maintained fork of Brotato Online by six666, supporting Steam and LAN multiplayer. It focuses on improving shop actions, weapon upgrades, retries and wave settlement, and allows multiple local players to join from one client.
 
+Designed for cooperative play between trusted friends, rather than anti-cheat enforcement. More responsive client actions and more reliable synchronization.
+
+[b]Current version:[/b] 6.8.1
 [b]Original author:[/b] six666
 [b]Fork maintainer:[/b] wushuangabao
-[b]Version:[/b] 6.8.1
 [b]Mod ID:[/b] wushuangabao-BrotatoOnlineFriends
 
-[h2]What Is Different from the Original?[/h2]
+[h2]Main Features[/h2]
 
 [list]
 [*][b]Immediate personal shop actions[/b]
-Clients execute their own purchases, rerolls, locks, weapon combinations, recycling, dismantling, and mechanical upgrades locally, then synchronize the results with the host and other players. This reduces delays caused by waiting for network confirmation.
+Purchases, rerolls, locks, weapon combinations, recycling, dismantling and mechanization execute locally, then synchronize their results, reducing delays caused by waiting for host replies.
 
-[*][b]Multiple local players per client[/b]
-Use keyboard/mouse plus controllers, or multiple controllers. Rooms support up to four players total, including one host player plus three client players, or two players on each side.
+[*][b]Multiple players on one client[/b]
+Clients support multiple input devices: keyboard/mouse plus controllers, or multiple controllers. For example, one host player plus two client players, or two players on each side.
 
-[*][b]Complete personal-state handoff before combat[/b]
-Before starting a wave, the host collects equipment, items, effects, health, level/XP, materials, mechanical chips, and shop state. This helps prevent the last purchase or upgrade from being lost during the transition.
+[*][b]Complete personal-state synchronization before combat[/b]
+Prevents entering combat before the final purchase or upgrade has synchronized.
+
+[*][b]More reliable retries and battle entry[/b]
+Fixes clients failing to re-enter combat after retrying a failed wave, and lets late clients automatically enter after the host starts.
+
+[*][b]Complete local wave settlement[/b]
+When the host reaches the shop first, clients finish local settlement before synchronizing the scene transition, preserving local callbacks and progress records.
 [/list]
 
-The host still coordinates the shared battlefield and scene transitions. This fork is designed for cooperative play between trusted friends, rather than anti-cheat enforcement.
-
-[h2]Fixes in This Release and Included Earlier Fixes[/h2]
+[h2]How to Use[/h2]
 
 [list]
-[*][b]6.8.1: Fixed skipped client wave settlement when the host reaches the shop first.[/b] Preserves local wave-end callbacks, step accounting and per-wave cleanup, while preventing duplicate settlement.
-[*][b]6.8.1: Added leftover-material ledger synchronization.[/b] Local two-process LAN checks cover delayed settlement, crates and upgrades, dinosaur eggs and mutations, endless harvesting decay and material conversion.
-[*]Fixed mechanical upgrades sometimes requiring repeated clicks.
-[*]Fixed the selected weapon changing when opening mechanical upgrades, and focus moving to the wrong slot after upgrading.
-[*]Prevented delayed or duplicate synchronization messages from undoing local actions or interfering with the current upgrade popup.
-[*]Includes fixes for locked shop offers becoming impossible to unlock or purchase, and purchased weapons missing from the client's weapon bar.
-[*]Includes fixes for host shop synchronization while paused and clients failing to enter combat after retrying a failed wave.
-[*]Supports automatic client entry when the host starts combat, including recovery for clients that enter late.
+[*]Disable other multiplayer Mods. The host and every client should subscribe to the same 6.8.1 version. Fully exit and restart the game after updating.
+[*]Join the same room through a Steam lobby or LAN.
+[*]To add local players on a client, hold the join button on each additional device while on the character selection screen.
+[*]Additional players can join only before the run starts. The room supports four players total.
+[*]For keyboard/mouse plus controllers, first set the first player’s online input device to keyboard/mouse.
 [/list]
 
-[h2]Setup and Important Notes[/h2]
+[h2]Compatibility and Notes[/h2]
 
 [list]
-[*][b]Every player must use the same version.[/b]
-Version 6.8.1 uses network protocol 6.5.0 and cannot mix with the original Mod or older fixed releases.
+[*]This version uses network protocol 6.5.0. All players should use the same latest version; do not mix different versions.
+[*]Data from older versions is not migrated automatically.
+[*]Not all character, item and third-party Mod combinations have been verified.
+[/list]
 
-[*][b]Disable the original and older fixed releases.[/b]
-Do not enable this fork alongside a version using Mod ID six666-BrotatoOnline.
+[h2]Version History[/h2]
 
-[*][b]Adding local players on a client[/b]
-After joining a room, stay on character selection and hold the join button on each additional device for about 0.7 seconds. This is usually A/confirm on a controller or Space on a keyboard; follow the in-game prompt.
+The following summarizes this branch’s development. Some versions were development builds rather than separate Workshop releases.
 
-[*][b]Joining restrictions and player limit[/b]
-Additional players can join only before the run starts. The room supports four players total. For keyboard/mouse plus controllers, select keyboard/mouse as the first player's online input device first.
+[list]
+[*][b]6.6.6 | Original Foundation[/b]
+The starting point for this fork, retaining the original Brotato Online multiplayer framework and cooperative flow.
 
-[*][b]Separate settings and compatibility[/b]
-This fork uses separate Mod settings and online identity storage. Previous data is not migrated automatically. Other Mods that depend on the original Mod ID may need updating.
+[*][b]6.6.7 | Shop Synchronization, Retries and Automatic Entry[/b]
+Fixed host shop actions failing to synchronize while paused and retry scene reloads being blocked by deduplication. Added start-message retries and late-client recovery to prevent clients remaining in an old scene.
 
-[*][b]Verification scope[/b]
-Automated verification covers independent local processes using LAN, including mechanical upgrades, shop-state handoff, retry, automatic battle entry, and multiple client players. Physical controllers, Steam multiplayer across computers, and Workshop subscription installation remain unverified.
+[*][b]6.6.8 | Locked Offers and Purchased-Weapon Recovery[/b]
+Fixed locked client offers becoming impossible to unlock or purchase, and older combine results overwriting newly purchased weapons. Added state recovery and protection against delayed messages, avoiding duplicate purchases or charges.
+
+[*][b]6.7.0 | Client Local Co-op[/b]
+Allowed multiple input devices to join as separate players on one client, with independent character selection, shopping, movement, damage and death. Extended ownership, reconnection and related interactions to multiple local players.
+
+[*][b]6.8.0 | Independent Friends Edition and Local Shops[/b]
+Switched to a separate Mod ID. Personal shop actions execute locally and synchronize their results, with complete personal-state handoff before combat. Fixed unresponsive mechanical upgrades, incorrect weapon matching, delayed messages closing popups and focus jumping between slots.
+
+[*][b]6.8.1 | Wave Settlement and Steam Initialization[/b]
+Fixed skipped client settlement when the host entered the shop first, and added synchronization of the leftover-material ledger. Reused already initialized Steam instances to fix the Steam.run_callbacks duplicate-connection error at startup.
 [/list]
 
 [h2]Credits and Source[/h2]
 
-Thanks to six666 and the original project's contributors. Original attribution is retained, and this fork is distributed under the GNU GPL v3 license.
+Thanks to six666 and the original project’s contributors. Original attribution is retained, and this fork is distributed under the GNU GPL v3 license.
 
 [url=https://github.com/xx666zz/BrotatoOnline]Original project[/url]
-[url=https://github.com/wushuangabao/BrotatoOnline/tree/feat/client-local-coop]Fork source[/url]
+[url=https://github.com/wushuangabao/BrotatoOnline/tree/feat/client-local-coop]Current version source and detailed changelog[/url]
