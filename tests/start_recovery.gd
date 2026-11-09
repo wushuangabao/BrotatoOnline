@@ -1,4 +1,4 @@
-extends "res://mods-unpacked/six666-BrotatoOnline/tests/retry_reload.gd"
+extends "res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/retry_reload.gd"
 
 func _run():
 	ProgressData.apply_settings()
@@ -6,7 +6,7 @@ func _run():
 	ProgressData.settings.retry_wave = true
 	DebugService.invulnerable = true
 	_setup_run()
-	var manager = load("res://mods-unpacked/six666-BrotatoOnline/tests/retry_reload_manager.gd").new()
+	var manager = load("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/retry_reload_manager.gd").new()
 	add_child(manager)
 	manager.set_process(false)
 	get_tree().current_scene = null
@@ -17,8 +17,8 @@ func _run():
 	old_scene._is_wave_failed = true
 	old_scene._retry_wave.show()
 	var old_id = old_scene.get_instance_id()
-	var host = load("res://mods-unpacked/six666-BrotatoOnline/tests/start_recovery_session.gd").new()
-	var client = load("res://mods-unpacked/six666-BrotatoOnline/tests/start_recovery_session.gd").new()
+	var host = load("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/start_recovery_session.gd").new()
+	var client = load("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/start_recovery_session.gd").new()
 	host.test_host = true
 	for session in [host, client]:
 		add_child(session)

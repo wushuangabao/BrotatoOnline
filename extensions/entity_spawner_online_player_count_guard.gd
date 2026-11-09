@@ -38,7 +38,7 @@ func _brotato_online_get_session_manager() -> Node:
 	var tree = get_tree()
 	if tree == null or tree.root == null:
 		return null
-	var direct = tree.root.get_node_or_null("ModLoader/six666-BrotatoOnline/BrotatoOnlineSessionManager")
+	var direct = tree.root.get_node_or_null("ModLoader/wushuangabao-BrotatoOnlineFriends/BrotatoOnlineSessionManager")
 	if direct != null and is_instance_valid(direct):
 		return direct
 	return _brotato_online_find_node_named(tree.root, "BrotatoOnlineSessionManager", 0)
@@ -48,7 +48,7 @@ func _brotato_online_get_slot_manager() -> Node:
 	var tree = get_tree()
 	if tree == null or tree.root == null:
 		return null
-	var direct = tree.root.get_node_or_null("ModLoader/six666-BrotatoOnline/BrotatoOnlineOnlinePlayerSlotManager")
+	var direct = tree.root.get_node_or_null("ModLoader/wushuangabao-BrotatoOnlineFriends/BrotatoOnlineOnlinePlayerSlotManager")
 	if direct != null and is_instance_valid(direct):
 		return direct
 	return _brotato_online_find_node_named(tree.root, "BrotatoOnlineOnlinePlayerSlotManager", 0)

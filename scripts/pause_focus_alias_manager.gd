@@ -7,7 +7,7 @@ extends Node
 #   keeps its focused_control valid, so vanilla MenuOptions can return focus safely
 #   without script-extending res://ui/menus/pages/menu_options.gd.
 
-const LOG_NAME = "six666-BrotatoOnline"
+const LOG_NAME = "wushuangabao-BrotatoOnlineFriends"
 const FOCUS_EMULATOR_SCRIPT_PATH = "res://ui/menus/global/focus_emulator.gd"
 const FOCUS_BASE_DATA_SCRIPT_PATH = "res://ui/menus/global/focus_emulator_base_data.gd"
 

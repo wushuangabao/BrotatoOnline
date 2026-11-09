@@ -1,6 +1,6 @@
 extends Node
 
-const API_MOD_ID = "six666-BrotatoOnline"
+const API_MOD_ID = "wushuangabao-BrotatoOnlineFriends"
 const ROUTE_PING_REQUEST = "player_list_ping_request"
 const ROUTE_PING_RESPONSE = "player_list_ping_response"
 const ROUTE_SNAPSHOT = "player_list_snapshot"

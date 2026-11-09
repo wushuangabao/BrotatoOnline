@@ -1,8 +1,8 @@
 extends Reference
 
 # Package and wire versions are independent.
-const MOD_VERSION = "6.7.0"
-const NETWORK_PROTOCOL_VERSION = "6.4.0"
+const MOD_VERSION = "6.8.0"
+const NETWORK_PROTOCOL_VERSION = "6.5.0"
 const LAN_PROTOCOL_VERSION = 4
 const DISCOVERY_PROTOCOL_VERSION = 2
 

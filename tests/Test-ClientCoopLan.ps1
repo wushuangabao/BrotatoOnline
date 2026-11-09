@@ -13,14 +13,14 @@ New-Item -ItemType Directory -Force -Path $output | Out-Null
 $sourceFiles = @(Get-ChildItem (Join-Path $repo 'scripts'), (Join-Path $repo 'extensions') -Filter '*.gd' -Recurse -File | ForEach-Object { $_.FullName.Substring($repo.Length + 1) }) + @('tests/client_coop_lan.gd', 'tests/client_coop_lan.tscn')
 foreach ($file in $sourceFiles) {
     $hash = (Get-FileHash -LiteralPath (Join-Path $repo $file)).Hash
-    if ($hash -ne (Get-FileHash -LiteralPath (Join-Path $project "mods-unpacked/six666-BrotatoOnline/$file")).Hash) { throw "Deploy current $file first." }
+    if ($hash -ne (Get-FileHash -LiteralPath (Join-Path $project "mods-unpacked/wushuangabao-BrotatoOnlineFriends/$file")).Hash) { throw "Deploy current $file first." }
     "$file SHA256=$hash" | Add-Content (Join-Path $output 'source.txt')
 }
 $modList = @{}
 foreach ($manifestFile in Get-ChildItem -LiteralPath (Join-Path $project 'mods-unpacked') -Filter manifest.json -Recurse -File) {
     $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw | ConvertFrom-Json
     $modId = "$($manifest.namespace)-$($manifest.name)"
-    $modList[$modId] = @{ is_active = ($modId -eq 'six666-BrotatoOnline'); zip_path = '' }
+    $modList[$modId] = @{ is_active = ($modId -eq 'wushuangabao-BrotatoOnlineFriends'); zip_path = '' }
 }
 $previous = @{}
 foreach ($key in @('APPDATA', 'BROTATO_TEST_ROLE', 'BROTATO_TEST_DIR', 'BROTATO_TEST_CLIENT_PLAYERS', 'BROTATO_TEST_HOST_PLAYERS')) { $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process') }
@@ -35,7 +35,7 @@ try {
         $env:BROTATO_TEST_CLIENT_PLAYERS = [string]$ClientPlayers
         $env:BROTATO_TEST_HOST_PLAYERS = [string]$HostPlayers
         $env:BROTATO_TEST_DIR = $output
-        $arguments = '--path "{0}" --no-window --audio-driver Dummy res://mods-unpacked/six666-BrotatoOnline/tests/client_coop_lan.tscn' -f $project
+        $arguments = '--path "{0}" --no-window --audio-driver Dummy res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/client_coop_lan.tscn' -f $project
         $processes[$role] = Start-Process $Godot -ArgumentList $arguments -WorkingDirectory $project -WindowStyle Hidden -PassThru -RedirectStandardOutput "$output\$role.stdout.log" -RedirectStandardError "$output\$role.stderr.log"
     }
 } catch {

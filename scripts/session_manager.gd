@@ -1,6 +1,6 @@
 extends Node
 
-const Protocol = preload("res://mods-unpacked/six666-BrotatoOnline/scripts/protocol.gd")
+const Protocol = preload("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/scripts/protocol.gd")
 
 
 const BROTATO_APP_ID = 1942280
@@ -2322,7 +2322,7 @@ func _setup_lobby_data() -> void:
 			host_name = str(_steam.getPersonaName()).strip_edges()
 		if host_name.length() > 64:
 			host_name = host_name.substr(0, 64)
-		_set_lobby_metadata_if_changed("mod", "six666-BrotatoOnline")
+		_set_lobby_metadata_if_changed("mod", "wushuangabao-BrotatoOnlineFriends")
 		_set_lobby_metadata_if_changed("mod_version", NETWORK_PROTOCOL_VERSION)
 		_set_lobby_metadata_if_changed("game_version", Protocol.get_game_version())
 		_set_lobby_metadata_if_changed("state", "character_selection")
@@ -2814,6 +2814,11 @@ func _handle_run_page_action_sync(from_steam_id: String, message: Dictionary) ->
 	if _is_game_host() and not _pending_host_game_start.empty() and _is_run_page_action_guarded_by_game_start(incoming_action_type):
 		return
 	if not _is_game_host():
+		if incoming_action_type == "shop_owner_ack":
+			var owner_menu = _get_menu_sync_manager()
+			if owner_menu != null:
+				owner_menu._get_trusted_shop_sync().acknowledge(message)
+			return
 		var menu_sync_client = _get_menu_sync_manager()
 		if menu_sync_client != null and menu_sync_client.has_method("receive_run_page_action_sync"):
 			menu_sync_client.receive_run_page_action_sync(from_steam_id, message, _self_steam_id)
@@ -2827,7 +2832,26 @@ func _handle_run_page_action_sync(from_steam_id: String, message: Dictionary) ->
 	message["player_index"] = owned_index
 	message["origin_steam_id"] = from_steam_id
 	var menu_sync_host = _get_menu_sync_manager()
+	if incoming_action_type == "shop_owner_state":
+		var owner_state = message.get("owner_state", {})
+		if menu_sync_host == null or typeof(owner_state) != TYPE_DICTIONARY:
+			return
+		var owner_sync = menu_sync_host._get_trusted_shop_sync()
+		var previous_revision = int(owner_sync.revisions.get(owned_index, 0))
+		if not owner_sync.accept(owned_index, owner_state):
+			return
+		_send_p2p_json(from_steam_id, {"msg_type": "run_page_action_sync", "action_type": "shop_owner_ack", "player_index": owned_index, "shop_owner_epoch": owner_sync.epoch, "shop_owner_revision": owner_sync.revisions.get(owned_index, 0)}, true)
+		if int(owner_state.get("shop_owner_revision", 0)) > previous_revision:
+			var mirrored = owner_state.duplicate(true)
+			mirrored["player_index"] = owned_index
+			mirrored["shop_state_revision"] = menu_sync_host._take_shop_state_revision()
+			mirrored["pressed_go"] = menu_sync_host._get_node_array_value(menu_sync_host._find_shop_node(), "_player_pressed_go_button", owned_index, false)
+			_broadcast_run_page_action_sync({"msg_type": "run_page_action_sync", "action_type": "shop_state", "screen": "shop", "player_index": owned_index, "origin_steam_id": _self_steam_id, "host_state_after": mirrored}, from_steam_id)
+		return
 	if menu_sync_host != null and menu_sync_host.has_method("receive_run_page_action_sync"):
+		var owner_sync = menu_sync_host._get_trusted_shop_sync()
+		if owner_sync.has_edits(owned_index) and owner_sync.is_owned_action(incoming_action_type):
+			return
 		var corrected_state = menu_sync_host.receive_run_page_action_sync(from_steam_id, message, _self_steam_id)
 		if incoming_action_type == "shop_buy":
 			_route_host_shop_buy_result(from_steam_id, message, corrected_state)
@@ -3396,7 +3420,7 @@ func _send_client_hello_to_host() -> void:
 		"msg_type": "hello",
 		"role": "client",
 		"steam_id": _self_steam_id,
-		"mod": "six666-BrotatoOnline",
+		"mod": "wushuangabao-BrotatoOnlineFriends",
 		"mod_version": NETWORK_PROTOCOL_VERSION,
 		"game_version": Protocol.get_game_version(),
 		"player_list_enabled": true,
@@ -5770,6 +5794,10 @@ func _handle_game_start_prepare_from_host(message: Dictionary) -> void:
 	_online_flow_left_since_msec = 0
 	var start_id = int(message.get("start_id", 0))
 	var start_kind = str(message.get("start_kind", "difficulty"))
+	var owner_states = []
+	var owner_menu = _get_menu_sync_manager()
+	if start_kind == "shop" and owner_menu != null:
+		owner_states = owner_menu._get_trusted_shop_sync().transition_states()
 	var retry_context_key = str(message.get("retry_context_key", ""))
 	var client_recv_msec = OS.get_ticks_msec()
 	_arm_client_battle_generation_fence(start_id, start_kind, retry_context_key, "prepare")
@@ -5787,6 +5815,8 @@ func _handle_game_start_prepare_from_host(message: Dictionary) -> void:
 		"client_send_msec": OS.get_ticks_msec(),
 		"client_time_delta_msec": client_recv_msec - host_prepare_msec
 	}
+	if start_kind == "shop":
+		ack["shop_owner_states"] = owner_states
 	send_menu_message_to_host(ack)
 
 
@@ -5796,6 +5826,19 @@ func _handle_game_start_time_ack(from_steam_id: String, message: Dictionary) -> 
 	var start_id = int(message.get("start_id", 0))
 	if start_id != int(_pending_host_game_start.get("start_id", -1)):
 		return
+	if str(_pending_host_game_start.get("stage", "")) != "waiting_ack":
+		return
+	if str(_pending_host_game_start.get("start_kind", "")) == "shop":
+		var owner_menu = _get_menu_sync_manager()
+		var owner_states = message.get("shop_owner_states", [])
+		if typeof(owner_states) != TYPE_ARRAY:
+			return
+		for state in owner_states:
+			if typeof(state) != TYPE_DICTIONARY or owner_menu == null:
+				return
+			var index = int(state.get("player_index", -1))
+			if _get_slot_manager().resolve_owned_player_index(from_steam_id, index) != index or not owner_menu._get_trusted_shop_sync().accept(index, state):
+				return
 	var ack = message.duplicate(true)
 	ack["host_ack_msec"] = OS.get_ticks_msec()
 	_host_game_start_ack_by_steam_id[from_steam_id] = ack
@@ -5879,6 +5922,18 @@ func _poll_host_game_start_sync() -> void:
 				if not _host_game_start_ack_by_steam_id.has(steam_id):
 					all_acked = false
 					break
+		if not all_acked and str(_pending_host_game_start.get("start_kind", "")) == "shop" and now >= int(_pending_host_game_start.get("ack_deadline_msec", 0)):
+			# Never commit an old inventory merely because a chunked owner snapshot
+			# took longer than the clock-sync timeout. Retry connected peers' barrier.
+			var waiting = false
+			for peer in remote_ids:
+				if _host_game_start_ack_by_steam_id.has(str(peer)) or not _get_remote_ids_for_host_sync().has(str(peer)):
+					continue
+				waiting = true
+				_send_p2p_json(str(peer), {"msg_type": "game_start_prepare", "start_id": _pending_host_game_start.start_id, "start_kind": "shop", "host_prepare_msec": _pending_host_game_start.host_prepare_msec, "difficulty": _pending_host_game_start.difficulty, "scene_path": MenuData.game_scene, "run_config": _pending_host_game_start.run_config}, true)
+			if waiting:
+				_pending_host_game_start["ack_deadline_msec"] = now + GAME_START_ACK_TIMEOUT_MSEC
+				return
 		if all_acked or now >= int(_pending_host_game_start.get("ack_deadline_msec", 0)):
 			_commit_host_game_start("all_acked" if all_acked else "ack_timeout")
 	elif stage == "waiting_client_scene_ready":
@@ -5921,6 +5976,12 @@ func _commit_host_game_start(reason: String) -> void:
 	if str(_pending_host_game_start.get("start_kind", "")) == "retry_wave":
 		_pending_host_game_start["run_config"] = _prepare_retry_wave_run_config_for_commit()
 		_pending_host_game_start["difficulty"] = _get_current_difficulty_value()
+	elif str(_pending_host_game_start.get("start_kind", "")) == "shop":
+		var owner_menu = _get_menu_sync_manager()
+		if owner_menu != null:
+			var latest = owner_menu._build_shop_start_run_config_for_scene_sync(true)
+			for key in latest:
+				_pending_host_game_start.run_config[key] = latest[key]
 
 	var run_config = _pending_host_game_start.get("run_config", {})
 	var remote_ids = _pending_host_game_start.get("remote_ids", [])
@@ -7697,6 +7758,8 @@ func _get_p2p_send_queue_coalesce_key(target_steam_id: String, message: Dictiona
 	if msg_type != "run_page_action_sync":
 		return ""
 	var action_type = str(message.get("action_type", ""))
+	if action_type == "shop_owner_state":
+		return target_steam_id + ":" + str(channel) + ":shop_owner_state:" + str(message.get("player_index", "")) + ":" + str(message.get("owner_state", {}).get("shop_owner_epoch", ""))
 	if action_type != "shop_focus" and action_type != "upgrade_focus" and action_type != "shop_reroll":
 		return ""
 	var origin = str(message.get("origin_steam_id", ""))

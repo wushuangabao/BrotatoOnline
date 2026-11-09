@@ -13,19 +13,19 @@ if ($Suite -eq 'shop') {
     foreach ($manifestFile in Get-ChildItem -LiteralPath (Join-Path $project 'mods-unpacked') -Filter manifest.json -Recurse -File) {
         $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw | ConvertFrom-Json
         $modId = "$($manifest.namespace)-$($manifest.name)"
-        $modList[$modId] = @{ is_active = ($modId -eq 'six666-BrotatoOnline'); zip_path = '' }
+        $modList[$modId] = @{ is_active = ($modId -eq 'wushuangabao-BrotatoOnlineFriends'); zip_path = '' }
     }
     @{ current_profile = 'default'; profiles = @{ default = @{ mod_list = $modList } } } | ConvertTo-Json -Depth 8 | Set-Content "$output\userdata\Brotato\mod_user_profiles.json" -Encoding utf8
 }
 $sourceScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts\menu_sync_manager.gd'
-$installedScript = Join-Path $project 'mods-unpacked\six666-BrotatoOnline\scripts\menu_sync_manager.gd'
+$installedScript = Join-Path $project 'mods-unpacked\wushuangabao-BrotatoOnlineFriends\scripts\menu_sync_manager.gd'
 $sourceHash = (Get-FileHash -LiteralPath $sourceScript).Hash
 if ($sourceHash -ne (Get-FileHash -LiteralPath $installedScript).Hash) {
     throw 'Deploy the current Mod before running this regression.'
 }
 "menu_sync_manager.gd SHA256=$sourceHash" | Set-Content "$output\source.txt"
 $sessionSource = Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts\session_manager.gd'
-$sessionInstalled = Join-Path $project 'mods-unpacked\six666-BrotatoOnline\scripts\session_manager.gd'
+$sessionInstalled = Join-Path $project 'mods-unpacked\wushuangabao-BrotatoOnlineFriends\scripts\session_manager.gd'
 $sessionHash = (Get-FileHash -LiteralPath $sessionSource).Hash
 if ($sessionHash -ne (Get-FileHash -LiteralPath $sessionInstalled).Hash) { throw 'Deploy the current session manager first.' }
 "session_manager.gd SHA256=$sessionHash" | Add-Content "$output\source.txt"
@@ -37,7 +37,7 @@ $previousTestDir = $env:BROTATO_TEST_DIR
 try {
     $env:APPDATA = "$output\userdata"
     $env:BROTATO_TEST_DIR = $output
-    $arguments = '--path "{0}" --no-window --audio-driver Dummy res://mods-unpacked/six666-BrotatoOnline/tests/{1}.tscn' -f $project, $scene
+    $arguments = '--path "{0}" --no-window --audio-driver Dummy res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/{1}.tscn' -f $project, $scene
     $process = Start-Process $Godot -ArgumentList $arguments -WorkingDirectory $project -WindowStyle Hidden -PassThru -RedirectStandardOutput "$output\stdout.log" -RedirectStandardError "$output\stderr.log"
 } finally {
     $env:APPDATA = $previousAppData

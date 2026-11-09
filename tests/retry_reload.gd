@@ -45,7 +45,7 @@ func _run():
 	ProgressData.settings.retry_wave = true
 	DebugService.invulnerable = true
 	_setup_run()
-	var manager = load("res://mods-unpacked/six666-BrotatoOnline/tests/retry_reload_manager.gd").new()
+	var manager = load("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/retry_reload_manager.gd").new()
 	add_child(manager)
 	manager.set_process(false)
 	get_tree().current_scene = null

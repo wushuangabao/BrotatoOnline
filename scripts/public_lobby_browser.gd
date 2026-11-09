@@ -1,11 +1,11 @@
 extends Node
 
-const Protocol = preload("res://mods-unpacked/six666-BrotatoOnline/scripts/protocol.gd")
+const Protocol = preload("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/scripts/protocol.gd")
 
 # Steam and LAN discovery share one list; SessionManager remains the only owner
 # of join/leave and gameplay state.
 
-const MOD_ID = "six666-BrotatoOnline"
+const MOD_ID = "wushuangabao-BrotatoOnlineFriends"
 # Steam/LAN compatibility is negotiated independently from the package version.
 const NETWORK_PROTOCOL_VERSION = Protocol.NETWORK_PROTOCOL_VERSION
 const DEFAULT_LAN_PORT = 27462

@@ -1,11 +1,17 @@
 extends Node
 
-const ItemRuntimeState = preload("res://mods-unpacked/six666-BrotatoOnline/scripts/item_runtime_state.gd")
-const ShopDlcActions = preload("res://mods-unpacked/six666-BrotatoOnline/scripts/shop_dlc_actions.gd")
+const ItemRuntimeState = preload("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/scripts/item_runtime_state.gd")
+const ShopDlcActions = preload("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/scripts/shop_dlc_actions.gd")
 var _item_runtime_state = ItemRuntimeState.new()
 var _shop_dlc_actions = ShopDlcActions.new()
+const TrustedShopSync = preload("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/scripts/trusted_shop_sync.gd")
+var _trusted_shop_sync = TrustedShopSync.new()
 
-const SessionContentCatalog = preload("res://mods-unpacked/six666-BrotatoOnline/scripts/session_content_catalog.gd")
+func _get_trusted_shop_sync():
+	_trusted_shop_sync.manager = self
+	return _trusted_shop_sync
+
+const SessionContentCatalog = preload("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/scripts/session_content_catalog.gd")
 var _session_content_catalog = SessionContentCatalog.new()
 
 
@@ -507,6 +513,7 @@ func _reset_run_page_runtime_state_for_game_start(clear_queued_actions: bool = t
 
 
 func reset_online_session_state(reason: String = "") -> void:
+	_get_trusted_shop_sync().reset()
 	_last_full_shop_repair_revision_by_player.clear()
 	_last_host_shop_state_revision_by_player.clear()
 	_last_shop_purchase_receipt_by_player.clear()
@@ -604,6 +611,7 @@ func _process(_delta: float) -> void:
 		_restore_local_content_configuration()
 		return
 
+	_get_trusted_shop_sync().tick()
 	var now = OS.get_ticks_msec()
 	if now - _last_state_poll_msec < STATE_POLL_INTERVAL_MSEC:
 		return
@@ -825,6 +833,9 @@ func receive_run_page_action_sync(from_steam_id: String, message: Dictionary, se
 	var player_index = _resolve_run_page_action_player_index(origin_steam_id, from_steam_id, self_steam_id, message)
 	if player_index < 0:
 		return {}
+	if _get_trusted_shop_sync().owns(player_index) and _trusted_shop_sync.has_edits(player_index) and _trusted_shop_sync.is_owned_action(action_type):
+		# Ignore late bootstrap click replies once this seat publishes its own results.
+		return {}
 	if action_type == "shop_items_resync_request" and _is_game_host():
 		player_index = int(message.get("requested_player_index", message.get("player_index", player_index)))
 
@@ -1025,8 +1036,10 @@ func receive_run_page_action_sync(from_steam_id: String, message: Dictionary, se
 			var shop_state_after = message.get("host_shop_state_after", message.get("host_state_after", message.get("state_after", {})))
 			if typeof(shop_state_after) == TYPE_DICTIONARY and not shop_state_after.empty():
 				_apply_or_queue_shop_states([shop_state_after], message)
-		if action_type in ["shop_combine_weapon", "shop_discard_weapon", "shop_meca_upgrade"]:
+		if action_type in ["shop_combine_weapon", "shop_discard_weapon"]:
 			_close_shop_popup_for_player(_find_shop_node(), player_index, message)
+		if action_type == "shop_meca_upgrade":
+			_get_dlc_shop_actions().finish_client_upgrade(_find_shop_node(), player_index, message)
 		if action_type == "shop_buy" and str(message.get("shop_buy_result", "")) == "success":
 			_request_shop_purchase_repair_if_needed(player_index, message.get("shop_purchase_receipt", {}))
 		return {}
@@ -2009,6 +2022,10 @@ func _submit_local_shop_action(message: Dictionary, player_index: int, label: St
 		return
 
 	var action_type = str(message.get("action_type", ""))
+	if _get_trusted_shop_sync().submit(message, player_index):
+		return
+	if action_type == "shop_go":
+		_get_trusted_shop_sync().flush()
 	if action_type == "shop_buy":
 		if not _apply_client_local_shop_purchase(message, player_index):
 			return
@@ -4118,8 +4135,8 @@ func _clear_client_locked_shop_items_for_player(player_index: int) -> void:
 	RunData.set("locked_shop_items", locked_items)
 
 
-func _replace_client_locked_shop_items_from_host_entries(player_index: int, item_entries: Array) -> void:
-	if _is_game_host() or player_index < 0:
+func _replace_client_locked_shop_items_from_host_entries(player_index: int, item_entries: Array, accept_owner: bool = false) -> void:
+	if (_is_game_host() and not accept_owner) or player_index < 0:
 		return
 	if typeof(item_entries) != TYPE_ARRAY:
 		return
@@ -4245,6 +4262,8 @@ func _sanitize_host_shop_items_for_client_content(shop: Node) -> bool:
 		return false
 	var changed_any = false
 	for player_index in range(_get_run_player_count()):
+		if _get_trusted_shop_sync().has_edits(player_index):
+			continue
 		var raw_items = _get_raw_shop_items_for_player(shop, player_index)
 		if typeof(raw_items) != TYPE_ARRAY or raw_items.empty():
 			continue
@@ -4392,6 +4411,7 @@ func _build_shop_player_state(player_index: int, shop: Node = null, force_run_da
 	var state = _build_shop_player_state_unstamped(player_index, shop, force_run_data_full, include_run_data_sync)
 	if _is_game_host() and not state.empty():
 		state["shop_state_revision"] = _take_shop_state_revision()
+		_get_trusted_shop_sync().stamp(state)
 	return state
 
 
@@ -6193,12 +6213,15 @@ func _set_node_array_value(node: Node, prop_name: String, index: int, value) -> 
 	node.set(prop_name, arr)
 
 
-func _apply_serialized_players_run_data(players: Array, preserve_client_local_runtime_state: bool = true) -> bool:
+func _apply_serialized_players_run_data(players: Array, preserve_client_local_runtime_state: bool = true, owned_shop_players: Array = []) -> bool:
 	var applied = false
 	for player_state in players:
 		if typeof(player_state) != TYPE_DICTIONARY:
 			continue
 		var player_index = int(player_state.get("player_index", -1))
+		if owned_shop_players.has(player_index):
+			applied = true
+			continue
 		var run_data_state = player_state.get("run_data", {})
 		if _apply_one_serialized_player_run_data(player_index, run_data_state, preserve_client_local_runtime_state):
 			_apply_missing_host_inventory_placeholders_from_serialized_state(player_index, _expand_compact_player_run_data_from_shop_sync(player_index, run_data_state))
@@ -8986,6 +9009,11 @@ func _build_run_config_for_scene_sync(include_player_run_data: bool = true, held
 
 
 func _apply_run_config_before_client_scene_change(config: Dictionary, target_screen: String) -> void:
+	var owned_shop_players = []
+	if target_screen == SCREEN_SHOP and int(config.get("current_wave", -1)) == RunData.current_wave and not str(config.get("run_config_source", "")) in ["player_removed", "retry_wave"]:
+		for index in RunData.get_player_count():
+			if _get_trusted_shop_sync().owns(index) and int(_trusted_shop_sync.revisions.get(index, 0)) > 0:
+				owned_shop_players.append(index)
 	var player_count = int(config.get("player_count", 1))
 	if player_count < 1:
 		player_count = 1
@@ -9054,7 +9082,7 @@ func _apply_run_config_before_client_scene_change(config: Dictionary, target_scr
 	var should_apply_full_run_data = _run_config_has_serialized_player_run_data(players) or target_screen == SCREEN_SHOP or target_screen == "shop" or bool(config.get("full_player_run_data_authoritative", false))
 	if should_apply_full_run_data:
 		var preserve_local_runtime_state = not str(config.get("run_config_source", "")) in ["retry_wave", "player_removed"]
-		applied_full_run_data = _apply_serialized_players_run_data(players, preserve_local_runtime_state)
+		applied_full_run_data = _apply_serialized_players_run_data(players, preserve_local_runtime_state, owned_shop_players)
 
 	if not applied_full_run_data:
 		_rebuild_run_data_from_selection_states(players, player_count, target_screen)
@@ -11855,6 +11883,7 @@ func _input(event: InputEvent) -> void:
 
 
 func reset_after_player_roster_change() -> void:
+	_get_trusted_shop_sync().reset()
 	_reset_run_page_runtime_state_for_game_start(true)
 	_reset_shop_state_diff_cache()
 	_last_state_from_host = {}
@@ -12032,6 +12061,7 @@ func _build_shop_action_delta_state(index: int, action: String, message: Diction
 	var state = _build_shop_action_delta_state_unstamped(index, action, message, applied)
 	if _is_game_host() and not state.empty():
 		state["shop_state_revision"] = _take_shop_state_revision()
+		_get_trusted_shop_sync().stamp(state)
 	return state
 
 
@@ -12057,11 +12087,16 @@ func _build_shop_action_delta_state_unstamped(index: int, action: String, messag
 
 
 func _apply_shop_player_state_to_ui(shop: Node, state: Dictionary) -> bool:
+	if _get_trusted_shop_sync().keeps_local(state):
+		return true
 	if _is_stale_shop_state(state):
 		_repair_uncovered_stale_shop_state(state)
 		return true
+	var popup_context = _get_dlc_shop_actions().capture_client_popup(shop, state)
 	var applied = _apply_shop_player_state_to_ui_base(shop, state)
 	if applied:
+		_get_trusted_shop_sync().observe(state)
+		_get_dlc_shop_actions().rebind_client_popup(shop, popup_context)
 		_get_dlc_shop_actions().apply_client_state(shop, state)
 		var index = int(state.get("player_index", -1))
 		var revision = int(state.get("shop_state_revision", 0))

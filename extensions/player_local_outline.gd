@@ -183,7 +183,7 @@ func _brotato_online_get_settings_manager() -> Node:
 	var tree = get_tree()
 	if tree == null or tree.root == null:
 		return null
-	var direct = tree.root.get_node_or_null("ModLoader/six666-BrotatoOnline/BrotatoOnlineModSettingsManager")
+	var direct = tree.root.get_node_or_null("ModLoader/wushuangabao-BrotatoOnlineFriends/BrotatoOnlineModSettingsManager")
 	if direct != null and is_instance_valid(direct):
 		return direct
 	return _brotato_online_find_node_named(tree.root, "BrotatoOnlineModSettingsManager", 0)

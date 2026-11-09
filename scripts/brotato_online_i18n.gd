@@ -122,8 +122,8 @@ func _get_mod_root_paths() -> Array:
 		if resource_path != "":
 			_add_unique_path(paths, resource_path.get_base_dir().get_base_dir())
 
-	_add_unique_path(paths, ModLoaderMod.get_unpacked_dir().plus_file("six666-BrotatoOnline"))
-	_add_unique_path(paths, "res://mods-unpacked/six666-BrotatoOnline")
+	_add_unique_path(paths, ModLoaderMod.get_unpacked_dir().plus_file("wushuangabao-BrotatoOnlineFriends"))
+	_add_unique_path(paths, "res://mods-unpacked/wushuangabao-BrotatoOnlineFriends")
 	return paths
 
 

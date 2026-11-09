@@ -3,7 +3,7 @@ extends "res://global/gpe_spawner.gd"
 var online_hole_layout = ""
 
 func spawn_holes_full_scene() -> void:
-	var session = get_node_or_null("/root/ModLoader/six666-BrotatoOnline/BrotatoOnlineSessionManager")
+	var session = get_node_or_null("/root/ModLoader/wushuangabao-BrotatoOnlineFriends/BrotatoOnlineSessionManager")
 	if session != null and session.bo_api_is_client():
 		return
 	.spawn_holes_full_scene()

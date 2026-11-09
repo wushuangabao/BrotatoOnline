@@ -1,4 +1,4 @@
-extends "res://mods-unpacked/six666-BrotatoOnline/scripts/session_manager.gd"
+extends "res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/scripts/session_manager.gd"
 
 # Capture wire messages so tests can drop/reorder delivery deterministically.
 # Host/client state machines are production code; both share one test SceneTree.

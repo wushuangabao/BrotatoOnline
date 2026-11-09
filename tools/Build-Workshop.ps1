@@ -4,12 +4,17 @@ $source = (Resolve-Path -LiteralPath (Split-Path -Parent $PSScriptRoot)).Path
 $manifest = Get-Content -LiteralPath (Join-Path $source 'manifest.json') -Raw | ConvertFrom-Json
 $modId = "$($manifest.namespace)-$($manifest.name)"
 $version = $manifest.version_number
-if ($modId -ne 'six666-BrotatoOnline' -or $version -notmatch '^\d+\.\d+\.\d+$') { throw 'Unexpected Mod ID or version.' }
+if ($modId -ne 'wushuangabao-BrotatoOnlineFriends' -or $version -notmatch '^\d+\.\d+\.\d+$') { throw 'Unexpected Mod ID or version.' }
 $protocol = Get-Content -LiteralPath (Join-Path $source 'scripts/protocol.gd') -Raw
 if ($protocol -notmatch ('const MOD_VERSION = "' + [regex]::Escape($version) + '"')) { throw 'Manifest/protocol package versions differ.' }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $output = (Resolve-Path -LiteralPath $OutputDirectory).Path
-$zipPath = Join-Path $output "$modId-Fixed-$version.zip"
+$entryScript = Get-Content -LiteralPath (Join-Path $source 'mod_main.gd') -Raw
+if ($entryScript -notmatch ('const MOD_DIR = "' + [regex]::Escape($modId) + '"')) { throw 'Manifest/entry script Mod IDs differ.' }
+foreach ($file in @(Get-Item (Join-Path $source 'mod_main.gd')) + @(Get-ChildItem (Join-Path $source 'scripts'), (Join-Path $source 'extensions') -Filter '*.gd' -File -Recurse)) {
+    if ([IO.File]::ReadAllText($file.FullName).Contains('six666-BrotatoOnline')) { throw "Legacy runtime Mod ID reference: $($file.FullName)" }
+}
+$zipPath = Join-Path $output "$modId-$version.zip"
 if (Test-Path -LiteralPath $zipPath) { throw "Output already exists: $zipPath" }
 # Explicit allowlist: never package the game, tests, saves, logs or .git.
 $relativeFiles = @('manifest.json', 'mod_main.gd', 'LICENSE', 'README.md', 'README.en.md', 'CHANGELOG.md', 'tools/Build-Workshop.ps1')

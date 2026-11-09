@@ -14,7 +14,7 @@ func _input(event: InputEvent) -> void:
 	if not get_tree().root.get_meta("brotato_online_session_active", false):
 		._input(event)
 		return
-	var slots = get_node_or_null("/root/ModLoader/six666-BrotatoOnline/BrotatoOnlineOnlinePlayerSlotManager")
+	var slots = get_node_or_null("/root/ModLoader/wushuangabao-BrotatoOnlineFriends/BrotatoOnlineOnlinePlayerSlotManager")
 	if slots != null and not slots.get_local_player_indices().has(_player_index):
 		return
 	var focused = get_focus_owner()

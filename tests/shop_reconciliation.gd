@@ -40,8 +40,8 @@ func _run():
 	RunData.is_endless_run = true
 	ZoneService.set_current_zone(ZoneService.get_zone_data(RunData.current_zone).duplicate())
 	ItemService.init_unlocked_pool()
-	var host = load("res://mods-unpacked/six666-BrotatoOnline/tests/shop_reconciliation_manager.gd").new()
-	var client = load("res://mods-unpacked/six666-BrotatoOnline/tests/shop_reconciliation_manager.gd").new()
+	var host = load("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/shop_reconciliation_manager.gd").new()
+	var client = load("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/shop_reconciliation_manager.gd").new()
 	host.test_host = true
 	add_child(host)
 	add_child(client)

@@ -1,4 +1,4 @@
-extends "res://mods-unpacked/six666-BrotatoOnline/scripts/menu_sync_manager.gd"
+extends "res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/scripts/menu_sync_manager.gd"
 
 # Use the production scene dispatcher unchanged. Isolate network roster and
 # inventory deserialization; the driver supplies an actual playable RunData.

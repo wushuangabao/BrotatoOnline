@@ -1,10 +1,10 @@
-# Brotato Online
+# Brotato Online Friends
 
 [简体中文](README.md) | **English**
 
-> **Unofficial fixed release 6.7.0 (2026-11-09)**. Original author: six666. Fix maintainer: wushuangabao.
-> Adds multiple local players per client: hold the join button on additional devices after entering a room, up to four players total. Includes the shop synchronization, retry reload, and automatic client catchup fixes. See [CHANGELOG.md](CHANGELOG.md) for details and validation scope.
-> This fork retains the internal ID `six666-BrotatoOnline`: enable either this release or the original, never both. All players should use the same fixed release.
+> **Independent fork 6.8.0 (2026-11-09)**. Original author: six666. Fork maintainer: wushuangabao.
+> Trusted multiplayer for friends: personal shops and mechanical upgrades apply locally, then synchronize results. Supports multiple local players per client, up to four players total, with retry and automatic battle entry fixes. See [CHANGELOG.md](CHANGELOG.md) for details and validation scope.
+> New Mod ID: `wushuangabao-BrotatoOnlineFriends`, intended for a separate Workshop item. Every player must use this version and disable the original or older fixed releases with ID `six666-BrotatoOnline`.
 > [Original project](https://github.com/xx666zz/BrotatoOnline) · [Fixed source](https://github.com/wushuangabao/BrotatoOnline) · [GPL-3.0 license](LICENSE)
 
 > Remote and LAN multiplayer support for *Brotato*, using a host-led hybrid synchronization model.
@@ -20,7 +20,17 @@ The goal is not to replace Brotato's original co-op flow with a completely diffe
 
 ## Usage
 
-### Multiple local players on a client (6.7.0)
+### Trusted personal shops (6.8.0)
+
+Each client executes its own purchases, rerolls, locks, combines, recycling, dismantling and mechanical upgrades immediately, including random results. The host mirrors and relays per-player results instead of replaying clicks or rolling back local edits. Closely spaced operations share a snapshot; the latest unacknowledged result is retried.
+
+The host still coordinates the shared battle and scene changes. The start handshake collects each client's final shop state before committing, retrying the handoff while a connected peer has not replied. Seat ownership, shop epochs and increasing revisions prevent cross-player updates, duplicates and stale-state rollback. Upgrade rewards and item-box pages retain their existing authority model.
+
+The handoff includes full personal `PlayerRunData` (equipment and modifications, items and effects, health, level/XP, gold and chips), plus offers, locks and reroll counters. The host combines these with shared wave, difficulty, zone, DLC, elite and event configuration to rebuild the start snapshot. Previous-wave enemies, projectiles and temporary scene nodes are not carried as personal state.
+
+This release uses network protocol **`6.5.0`**. Update the host and every client to **6.8.0**; it cannot mix with 6.7.0 or the original Mod. Settings and online identity storage use the new ID and are not automatically migrated. Other mods that declare dependencies/load order or find the API using the old Mod ID need to adopt the new ID.
+
+### Multiple local players on a client
 
 After joining a room, remain on character selection and hold the vanilla co-op join button on each additional device for about 0.7 seconds (controller A/confirm or keyboard Space; follow the in-game prompt). The host assigns each new seat and shares the roster with everyone.
 
@@ -28,7 +38,7 @@ After joining a room, remain on character selection and hold the vanilla co-op j
 - Local players select characters, shop, move, take damage and die independently. Adding seats is limited to character selection, before the run starts.
 - The first player uses the configured online input device. Select keyboard/mouse there first if controllers should join as additional players.
 - Reconnection retains all seats belonging to that client. Connect enough devices before continuing a saved run. Kicking a client removes all of its seats.
-- Update the host and every client to 6.7.0 (network protocol `6.4.0`). It cannot mix with 6.6.8 or earlier releases.
+- Update the host and every client to 6.8.0 (network protocol `6.5.0`). It cannot mix with older releases or the original Mod.
 
 Automated verification uses two local Godot processes, real LAN transport and injected device input. Physical controllers and Steam sessions across computers still require testing. See [tests/README.md](tests/README.md) for commands and scope.
 
@@ -58,7 +68,7 @@ When resuming a multiplayer run, players can rejoin in any order. Characters, eq
 
 - During combat or in the shop, only the original player can reconnect. To replace a player, return to the main menu and have the host select **Continue** to reassign the character.
 
-- Identity records are stored separately in `user://mod_data/six666-BrotatoOnline/`, without modifying the vanilla save structure. Back up this directory when transferring saves.
+- Identity records are stored separately in `user://mod_data/wushuangabao-BrotatoOnlineFriends/`, without modifying the vanilla save structure. Back up this directory when transferring saves.
 
 Character ownership restoration and reassignment were contributed by [@Perdixky](https://github.com/Perdixky) in [PR #12](https://github.com/xx666zz/BrotatoOnline/pull/12).
 
@@ -107,14 +117,14 @@ Brotato Online is not a fully host-authoritative simulation. Different kinds of 
 
 ### Steam Workshop
 
-If you use the Workshop build, subscribe to Brotato Online and enable it in ModLoader.
+If you use the Workshop build, subscribe to Brotato Online Friends and enable it in ModLoader, with the original and older fixed releases disabled.
 
 ### Manual/development build
 
 Install the project as a ModLoader-compatible Godot mod and keep the expected mod directory name:
 
 ```text
-six666-BrotatoOnline
+wushuangabao-BrotatoOnlineFriends
 ```
 
 Current compatibility:
@@ -123,8 +133,8 @@ Current compatibility:
 | ------------------------------- | ---------- |
 | Brotato (locally tested)         | `1.2.0.1` |
 | ModLoader                       | `6.3.0`    |
-| Brotato Online release          | `6.7.0`    |
-| Brotato Online network protocol | `6.4.0`    |
+| Brotato Online release          | `6.8.0`    |
+| Brotato Online network protocol | `6.5.0` |
 | Maximum players                 | `4`        |
 
 ## Network Architecture
@@ -153,7 +163,7 @@ This keeps gameplay logic independent from a single networking backend and allow
 ## Main Modules
 
 ```text
-six666-BrotatoOnline/
+wushuangabao-BrotatoOnlineFriends/
 ├─ manifest.json
 ├─ mod_main.gd
 ├─ scripts/

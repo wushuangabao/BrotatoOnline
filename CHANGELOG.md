@@ -1,5 +1,22 @@
 # Brotato Online — 非官方修复版 / Unofficial Fixed Release
 
+## 6.8.0 — 2026-11-09 — Brotato Online Friends
+
+原作者 / Original author: **six666**。独立维护 / Fork maintainer: **wushuangabao**。本版本基于原项目修改，保留作者与许可证声明，遵循 GNU GPL v3。
+
+- 个人商店操作改为客户端本地执行并同步结果，涵盖购买、刷新、锁定、合成、回收、拆解和机械升级；房主不重复抽取随机结果或回放这些操作。
+- 合并短时间内的操作快照，重发未确认结果；按玩家归属、商店批次和版本号处理重复及过期包，防止旧快照和场景 RunData 撤销本地操作。
+- 开打前收集客户端完整个人运行状态，包括武器、道具、属性效果、材料、机械芯片、生命、等级和经验，再构建进场数据；等待结果时重试交接，避免丢失最后一次购买或升级。
+- 修复机械升级旧武器引用误匹配、迟到回包关闭当前弹窗、拒绝回包重建武器栏后丢失焦点，以及原版移除旧武器时的邻近槽位跳转。
+- 使用独立 Mod ID **`wushuangabao-BrotatoOnlineFriends`**，可新建创意工坊条目发布。资源路径、节点查找、API 标识、设置与身份存储、大厅元数据和测试入口均切换到新 ID；声明与 `six666-BrotatoOnline` 互斥，避免同时加载两套联机逻辑。
+- 网络协议升至 `6.5.0`；所有参与者须更新至 6.8.0。独立 ID 不自动迁移旧版 Mod 设置与身份文件；按旧 ID 集成的第三方 Mod 需要适配。
+
+Personal shops now execute locally and synchronize owner results, including random rerolls and mechanical choices. Coalesced snapshots, acknowledgement retries, per-shop epochs and per-player revisions preserve local edits. The start handshake gathers full personal run state before building battle data. Mechanical upgrades preserve weapon identity and focus across delayed messages. This independent release uses Mod ID **`wushuangabao-BrotatoOnlineFriends`** and wire protocol **`6.5.0`**. Runtime paths, API IDs, settings/identity storage and lobby metadata use the new ID. Disable `six666-BrotatoOnline`; the manifest declares it incompatible. All peers must update to 6.8.0. Settings/identity data are not automatically migrated, and third-party integrations using the original ID need updating.
+
+验证范围：GodotSteam 3.6、本机独立进程和真实 LAN；覆盖本地即时操作、完整个人状态交接、机械升级、1＋3／2＋2 本地多人、重连、失败重试和迟到客户端恢复。测试使用受控场景与输入，不代表实体手柄、Steam 跨机器网络或创意工坊订阅安装已验证。发布 ZIP 不包含游戏、测试、存档或日志。
+
+Validation uses GodotSteam 3.6, independent local processes and real LAN with controlled fixtures/input. Coverage includes immediate shop actions, full personal-state handoff, mechanical upgrades, 1+3/2+2 local co-op, reconnect, retry and late-client recovery. Physical controllers, Steam WAN and Workshop subscription installation remain unverified. The ZIP excludes the game, tests, saves and logs.
+
 ## 6.7.0 — 2026-11-09
 
 原作者 / Original author: **six666**。修复维护者 / Fix maintainer: **wushuangabao**。

@@ -46,7 +46,7 @@ func _brotato_online_get_local_player_index(fallback_index: int) -> int:
 		return fallback_index if fallback_index >= 0 else 0
 
 	var manager = tree.root.get_node_or_null(
-		"ModLoader/six666-BrotatoOnline/BrotatoOnlineOnlinePlayerSlotManager"
+		"ModLoader/wushuangabao-BrotatoOnlineFriends/BrotatoOnlineOnlinePlayerSlotManager"
 	)
 	if manager == null:
 		return fallback_index if fallback_index >= 0 else 0

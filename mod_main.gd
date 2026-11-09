@@ -1,7 +1,7 @@
 extends Node
 
-const MOD_DIR = "six666-BrotatoOnline"
-const LOG_NAME = "six666-BrotatoOnline"
+const MOD_DIR = "wushuangabao-BrotatoOnlineFriends"
+const LOG_NAME = "wushuangabao-BrotatoOnlineFriends"
 
 var mod_dir_path = ""
 

@@ -9,14 +9,14 @@ $output = Join-Path (Split-Path -Parent $project) ('logs\shop-purchase-lan\' + (
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 foreach ($file in @('scripts/menu_sync_manager.gd', 'scripts/session_manager.gd', 'tests/shop_purchase_lan.gd', 'tests/shop_purchase_lan.tscn')) {
     $hash = (Get-FileHash -LiteralPath (Join-Path $repo $file)).Hash
-    if ($hash -ne (Get-FileHash -LiteralPath (Join-Path $project "mods-unpacked/six666-BrotatoOnline/$file")).Hash) { throw "Deploy current $file first." }
+    if ($hash -ne (Get-FileHash -LiteralPath (Join-Path $project "mods-unpacked/wushuangabao-BrotatoOnlineFriends/$file")).Hash) { throw "Deploy current $file first." }
     "$file SHA256=$hash" | Add-Content (Join-Path $output 'source.txt')
 }
 $modList = @{}
 foreach ($manifestFile in Get-ChildItem -LiteralPath (Join-Path $project 'mods-unpacked') -Filter manifest.json -Recurse -File) {
     $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw | ConvertFrom-Json
     $modId = "$($manifest.namespace)-$($manifest.name)"
-    $modList[$modId] = @{ is_active = ($modId -eq 'six666-BrotatoOnline'); zip_path = '' }
+    $modList[$modId] = @{ is_active = ($modId -eq 'wushuangabao-BrotatoOnlineFriends'); zip_path = '' }
 }
 $previous = @{}
 foreach ($key in @('APPDATA', 'BROTATO_TEST_ROLE', 'BROTATO_TEST_DIR')) { $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process') }
@@ -29,7 +29,7 @@ try {
         $env:APPDATA = $data
         $env:BROTATO_TEST_ROLE = $role
         $env:BROTATO_TEST_DIR = $output
-        $arguments = '--path "{0}" --no-window --audio-driver Dummy res://mods-unpacked/six666-BrotatoOnline/tests/shop_purchase_lan.tscn' -f $project
+        $arguments = '--path "{0}" --no-window --audio-driver Dummy res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/shop_purchase_lan.tscn' -f $project
         $processes[$role] = Start-Process $Godot -ArgumentList $arguments -WorkingDirectory $project -WindowStyle Hidden -PassThru -RedirectStandardOutput "$output\$role.stdout.log" -RedirectStandardError "$output\$role.stderr.log"
     }
 } finally {

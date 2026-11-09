@@ -1,18 +1,18 @@
 {
-  "name": "BrotatoOnline",
-  "namespace": "six666",
-  "version_number": "6.7.0",
-  "description": "Brotato Online 非官方修复版：支持客户端本地多人、全房间最多四人，包含商店同步、失败重试与自动进场修复。",
+  "name": "BrotatoOnlineFriends",
+  "namespace": "wushuangabao",
+  "version_number": "6.8.0",
+  "description": "Brotato Online Friends：朋友间信任联机，个人商店与机械升级本地立即生效，支持客户端本地多人、全房间最多四人。",
   "website_url": "https://github.com/wushuangabao/BrotatoOnline",
   "dependencies": [],
   "extra": {
     "godot": {
       "authors": ["six666", "wushuangabao"],
       "tags": ["Utilities"],
-      "description_rich": "土豆兄弟远程联机 Mod，非官方修复版 6.7.0。原作者：six666；修复维护：wushuangabao（2026-11-09）。客户端进入房间的角色选择页后，额外设备长按原版加入键即可加入；支持键鼠加手柄或多个手柄，全房间合计最多四人。各角色独立选人、购物、移动、受伤和死亡，断线重连保留全部本地角色。包含商店锁定与购买同步、暂停商店同步、失败重试和客户端自动进场修复。网络协议升级为 6.4.0，房主和所有客户端均须更新至 6.7.0，请勿与旧版或原版混用。已通过本机双进程 LAN 自动测试；实体手柄、Steam 跨机器联机与创意工坊订阅安装尚未验证。详见 CHANGELOG.md。",
+      "description_rich": "Brotato Online Friends 6.8.0（2026-11-09），基于 six666 的 Brotato Online，由 wushuangabao 独立维护。采用新 Mod ID wushuangabao-BrotatoOnlineFriends，可作为独立创意工坊条目发布。个人商店由客户端本地执行购买、刷新、锁定、合成、回收、拆解和机械升级，房主接收并转发结果；开打前交接完整个人运行状态。修复机械升级无响应、武器误匹配和焦点跳转，保留客户端本地多人、失败重试与自动进场功能，全房间最多四人。网络协议 6.5.0，所有玩家须使用同一版本，并停用原版及旧修复版 six666-BrotatoOnline。独立 ID 使用单独的 Mod 设置与身份存储。已进行本机多进程 LAN 自动验证；实体手柄、Steam 跨机器联机与创意工坊订阅安装尚未验证。详见 CHANGELOG.md。",
       "optional_dependencies": [],
       "load_before": [],
-      "incompatibilities": [],
+      "incompatibilities": ["six666-BrotatoOnline"],
       "compatible_game_version": [],
       "compatible_mod_loader_version": ["6.3.0"],
       "config_schema": {}

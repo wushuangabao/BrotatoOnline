@@ -1,5 +1,25 @@
 # Retry scene reload regression
 
+## Trusted personal shop results
+
+```powershell
+./tests/Test-TrustedShopLan.ps1 -ProjectPath E:/github/BrotatoMod/RecoveredProject
+```
+
+Two isolated Godot processes use production ENet and native shop callbacks. Assertions cover immediate lock/unlock (including the native retained-offer list), random reroll and charge, locked-offer retention, combine-then-buy, recycling, stale shop/scene-state suppression, host mirroring, duplicate/older revisions, old shop epochs, and seat ownership. The final recycle result is deliberately withheld from the normal publisher; the real start ACK must deliver it before both processes enter the battle. Controlled personal health, level/XP, chips and an armor effect also verify the handoff covers more than equipment and gold. A forced clock-ACK deadline verifies the host retries rather than committing old inventory. Publication timing, fixture data and the timeout are controlled; no gameplay or transport helper is substituted. Logs and source hashes are retained in `logs/trusted-shop-lan`.
+
+The 40-check reconciliation suite below deliberately omits owner-epoch negotiation in its test manager and continues to cover the bootstrap/fallback reconciliation path. Its rejection behavior is not the normal owner-operated shop behavior. All LAN suites share port 27462 and must run sequentially.
+
+## Mechanical weapon upgrades
+
+```powershell
+./tests/Test-MecaUpgradeLan.ps1 -ProjectPath E:/github/BrotatoMod/RecoveredProject
+```
+
+Uses two independent GodotSteam processes and production ENet on localhost port 27462 (run LAN suites sequentially). Deploy the current scripts and fixture first; the runner checks hashes and isolates profiles with only BrotatoOnline enabled and saving disabled. Evidence is retained in `logs/meca-upgrade-lan`.
+
+The controlled endless-wave-21 shop fixture has a normal pistol, an SMG, a mechanical pistol and 80 items. Native focus and button signals drive six upgrades, alternating attribute choices. Preview and upgrade must complete in the input frame, before a host response. Host snapshots are deliberately sent before preview and during an open choice; an invalid legacy confirmation tests rejection traffic, and a double press tests single charging. Both peers must agree on rank, attributes and chips, with focus retained on the upgraded weapon. Additional boundary checks cover a late success while another weapon popup is open, stable identity lookup after Resource replacement, and ambiguous identical copies. These last checks inject state at the production helper boundary; they are not a natural packet-delay reproduction. No production helper is substituted. This does not establish physical mouse/controller, Steam WAN or arbitrary Mod compatibility.
+
 ## Multiple local client players
 
 ```powershell
@@ -15,7 +35,7 @@ Assertions cover independent seats, character confirmations, purchases, movement
 
 ## Retry reload
 
-Install this checkout at `<Godot project>/mods-unpacked/six666-BrotatoOnline`, including `tests`, then run:
+Install this checkout at `<Godot project>/mods-unpacked/wushuangabao-BrotatoOnlineFriends`, including `tests`, then run:
 
 ```powershell
 ./tests/Test-RetryReload.ps1 -ProjectPath E:/github/BrotatoMod/RecoveredProject
@@ -39,7 +59,7 @@ The test substitutes transport delivery, host scene execution (the shared SceneT
 
 ## Shop lock and purchase reconciliation
 
-Failed lock/buy corrections must bypass both whole-state and slot-state deduplication: identical host snapshots can still repair a locally changed card. Successful purchases carry a compact inventory/slot/gold receipt; a mismatch requests a private full repair instead of repeating the purchase. Host revisions prevent old packets from undoing a repair. A newer partial delta does not prove that older inventory fields arrived, so an uncovered stale receipt/repair requests current full state. These checks apply to the purchasing client's own prediction; observer synchronization is unchanged. Both peers need the updated Mod for receipt-based recovery.
+Before owner-epoch handoff, failed lock/buy corrections must bypass both whole-state and slot-state deduplication: identical host snapshots can still repair a locally changed card. The retained fallback protocol uses purchase receipts, private repairs and host revisions. The 40-check suite explicitly exercises that bootstrap/fallback path; normal personal shops now use owner results as described above.
 
 ```powershell
 ./tests/Test-RetryReload.ps1 -ProjectPath E:/github/BrotatoMod/RecoveredProject -Suite shop
@@ -50,4 +70,4 @@ Both shop runners use isolated saves and enable only BrotatoOnline. Install the 
 
 The 40-check shop suite uses actual CoopShop, ordinary SMG/Lens offers retained from the previous wave, and native purchase/lock code. Controlled delivery of host rejection snapshots verifies that identical cached states restore lock visuals, sold/active state, button availability, gold and inventory. It also covers a state arriving after a successful purchase receipt, one outstanding repair, no duplicate purchase, no repair loop, old corrections/receipts/rerolls after a newer repair, partial lock deltas overtaking receipts or repairs, and ignoring receipts from a previous wave. Identity lookup is isolated in a test manager; transport rejection and the earlier cause of stale input are not simulated as natural gameplay.
 
-The LAN suite launches two independent Godot processes. A controlled wave-21 fixture gives the client two pistols and a locked SMG from wave 20. Client production UI callbacks combine the pistols and buy the SMG in one turn, before receiving either reply. Production ENet transport, action execution, receipt comparison, private repair request/response, inventory restoration and gear UI all run unchanged. Both peers must finish with a tier-II pistol, one SMG and 9920 gold. Logs, source hashes, JSON snapshots and rendered screenshots are retained. This is not a Steam WAN or separate-machine test.
+The LAN suite launches two independent Godot processes. A controlled wave-21 fixture gives the client two pistols and a locked SMG from wave 20. Client production UI callbacks combine the pistols and buy the SMG in one turn, before receiving either reply. With owner handoff enabled, production ENet, native local actions, result mirroring and gear UI run unchanged. Both peers must finish with a tier-II pistol, one SMG and 9920 gold. Logs, source hashes, JSON snapshots and rendered screenshots are retained. This is not a Steam WAN or separate-machine test.

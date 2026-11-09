@@ -9,7 +9,7 @@ func is_manual_aim(player_index: int) -> bool:
 		return .is_manual_aim(player_index)
 	if player_index < 0 or player_index >= RunData.get_player_count():
 		return false
-	var manager = tree.root.get_node_or_null("ModLoader/six666-BrotatoOnline/BrotatoOnlineOnlineInputManager")
+	var manager = tree.root.get_node_or_null("ModLoader/wushuangabao-BrotatoOnlineFriends/BrotatoOnlineOnlineInputManager")
 	if manager == null or not manager.has_method("is_local_player_index"):
 		return .is_manual_aim(player_index)
 
