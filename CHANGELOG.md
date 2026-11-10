@@ -1,5 +1,16 @@
 # Brotato Online — 非官方修复版 / Unofficial Fixed Release
 
+## 6.8.2 — 2026-11-10 — 选人输入与联机旧档续玩修复
+
+- 客户端选人初始化清空阵容时延后恢复权威布局，并重新同步界面与焦点，修复角色列表隐藏和多余加入框。
+- 选人和武器页面按本机席位隔离输入；移除会同时别名本机键盘与第一手柄的远程占位设备 0，安全占位不足时拒绝不完整布局，避免串号。
+- 修复客户端重启续档后第二个席位优先绑定键盘、忽略已连接第二手柄的问题：保留当前进程已有选择，否则先用空闲已连接手柄，最后回退键盘。
+- 未改变存档格式或身份记录。原始 6.8.1 创建的四份真实 LAN 合作存档，分别以四种主客输入组合续档，16 条路径、944 条断言通过；角色、装备、进度与归属保持正确，设备按本次配置恢复。选人/武器及加入顺序回归另有 414 条通过。
+- Mod ID 保持 `wushuangabao-BrotatoOnlineFriends`，网络协议保持 `6.5.0`；主机和所有客户端一起更新至 6.8.2。继续旧档需保留原存档和身份文件，客户端从主菜单加入主机重开的房间。
+- 验证使用本机独立引擎进程、真实 ENet/LAN 和模拟设备输入；实体 A 键故障、短断连后手柄互换、Steam 跨机器及创意工坊安装尚未验证。未对未定位的热插拔问题作推测性修改。详见 `docs/selection-input-validation.md` 与 `docs/save-compatibility-validation.md`。
+
+Fixes client character-screen initialization, isolates local selection input from remote seats, and uses available connected controllers before the keyboard fallback when restoring additional client seats. Save format and player identities are unchanged. All 16 cross-configuration paths from original 6.8.1 network saves passed, including changing devices on either peer; 944 save/resume assertions and 414 selection assertions passed. Update all peers to 6.8.2. Physical hotplug behavior, Steam WAN and Workshop installation remain unverified.
+
 ## 6.8.1 — 2026-11-09 — 波次结算同步修复
 
 - Steam 已初始化且可取得有效 Steam ID 时直接复用现有实例，不再重复调用 `steamInitEx()` / `steamInit()`；未就绪时保留原有初始化及 LAN 回退流程。此修订沿用 6.8.1 并重新打包。

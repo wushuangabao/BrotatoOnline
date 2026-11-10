@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/selection_input_lan.gd" type="Script" id=1]
+
+[node name="SelectionInputLanRegression" type="Node"]
+script = ExtResource( 1 )

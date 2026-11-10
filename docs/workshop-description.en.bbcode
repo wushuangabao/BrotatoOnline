@@ -4,7 +4,7 @@ This Mod is an unofficial, independently maintained fork of Brotato Online by si
 
 Designed for cooperative play between trusted friends, rather than anti-cheat enforcement. More responsive client actions and more reliable synchronization.
 
-[b]Current version:[/b] 6.8.1
+[b]Current version:[/b] 6.8.2
 [b]Original author:[/b] six666
 [b]Fork maintainer:[/b] wushuangabao
 [b]Mod ID:[/b] wushuangabao-BrotatoOnlineFriends
@@ -31,7 +31,7 @@ When the host reaches the shop first, clients finish local settlement before syn
 [h2]How to Use[/h2]
 
 [list]
-[*]Disable other multiplayer Mods. The host and every client should subscribe to the same 6.8.1 version. Fully exit and restart the game after updating.
+[*]Disable other multiplayer Mods. The host and every client should subscribe to the same 6.8.2 version. Fully exit and restart the game after updating.
 [*]Join the same room through a Steam lobby or LAN.
 [*]To add local players on a client, hold the join button on each additional device while on the character selection screen.
 [*]Additional players can join only before the run starts. The room supports four players total.
@@ -42,7 +42,7 @@ When the host reaches the shop first, clients finish local settlement before syn
 
 [list]
 [*]This version uses network protocol 6.5.0. All players should use the same latest version; do not mix different versions.
-[*]Data from older versions is not migrated automatically.
+[*]6.8.1 network co-op saves can be continued; keep the save and identity files. Data from the original six666-BrotatoOnline ID is not migrated automatically.
 [*]Not all character, item and third-party Mod combinations have been verified.
 [/list]
 
@@ -68,6 +68,9 @@ Switched to a separate Mod ID. Personal shop actions execute locally and synchro
 
 [*][b]6.8.1 | Wave Settlement and Steam Initialization[/b]
 Fixed skipped client settlement when the host entered the shop first, and added synchronization of the leftover-material ledger. Reused already initialized Steam instances to fix the Steam.run_callbacks duplicate-connection error at startup.
+
+[*][b]6.8.2 | Selection Input and Saved Runs[/b]
+Fixes hidden character lists, extra join panels, local input affecting remote seats, and restored client seats ignoring a second controller in favor of the keyboard. Undiagnosed physical hotplug swaps have not been changed.
 [/list]
 
 [h2]Credits and Source[/h2]

@@ -9,10 +9,12 @@ const MAX_REMOTE_PLAYERS = 3
 const RESTORE_CHECK_INTERVAL_MSEC = 500
 # Remote placeholders must use vanilla-mapped device ids.
 # InputService creates ui_* / button_* actions for remapped devices 0..7.
-# Prefer the original low ids 1..3. 4, 5 and 0 are fallback ids only when a
+# Prefer the original low ids 1..3. 4 and 5 are fallback ids only when a
 # manually selected local controller already owns one of 1..3. Connected physical
 # controllers are always reserved before a placeholder is allocated.
-const REMOTE_PLACEHOLDER_DEVICE_IDS = [1, 2, 3, 4, 5, 0]
+# Device 0 aliases BOTH keyboard input (7) and the first physical pad (6).
+# Exhaustion must reject the allocation, never give a remote seat local input.
+const REMOTE_PLACEHOLDER_DEVICE_IDS = [1, 2, 3, 4, 5]
 const REMOTE_PLACEHOLDER_PLAYER_TYPE = CoopService.PlayerType.GAMEPAD_XBOX
 const META_LOCAL_INPUT_DEVICE_MODE = "brotato_online_local_input_device_mode"
 const META_LOCAL_INPUT_JOYPAD_ID = "brotato_online_local_input_joypad_id"
@@ -58,6 +60,7 @@ var _last_mirror_restore_log_msec = 0
 var _bo_resume_emit_scene_id = 0
 var _bo_resume_last_emitted_count = -1
 var _last_observed_local_layout_key = ""
+var _pending_client_selection_restore_scene_id = 0
 
 
 
@@ -646,7 +649,8 @@ func apply_host_selection_layout(selection_state: Dictionary, self_steam_id: Str
 			# 其他玩家只是显示/槽位占位，不接本机输入；使用官方已映射的 gamepad placeholder。
 			device = _get_next_remote_placeholder_device_from_lists(new_remote_devices, new_connected_players, reserved_local_devices)
 			if device < 0:
-				continue
+				# Never commit a partial roster with shifted player indices.
+				return
 			player_type = REMOTE_PLACEHOLDER_PLAYER_TYPE
 			new_remote_devices.append(device)
 			var remote_key = steam_id
@@ -1485,6 +1489,16 @@ func _capture_client_local_join() -> void:
 	var scene = get_tree().current_scene
 	if scene == null or not str(scene.filename).ends_with("/character_selection.tscn"):
 		return
+	if CoopService.connected_players.empty():
+		# Vanilla clears the roster inside _play_mode_init(), then resets its UI
+		# to zero players. Restoring synchronously here lets the outer signal and
+		# remaining initialization overwrite the repaired focus devices and grid.
+		# An empty roster is not a local join; restore after that stack unwinds.
+		var scene_id = scene.get_instance_id()
+		if _pending_client_selection_restore_scene_id != scene_id:
+			_pending_client_selection_restore_scene_id = scene_id
+			call_deferred("_restore_client_selection_after_initialization", scene_id)
+		return
 	var joining_entries = []
 	for entry in CoopService.connected_players:
 		var device = int(entry[0])
@@ -1510,6 +1524,28 @@ func _capture_client_local_join() -> void:
 		emit_signal("client_local_join_requested", seat)
 
 
+func _restore_client_selection_after_initialization(scene_id: int) -> void:
+	if _pending_client_selection_restore_scene_id != scene_id:
+		return
+	_pending_client_selection_restore_scene_id = 0
+	var scene = get_tree().current_scene
+	if scene == null or scene.get_instance_id() != scene_id or not _is_online_session_active():
+		return
+	if _is_slot_mutation_locked() or _local_mirrored_player_index < 0 or _mirrored_connected_players.empty():
+		return
+	_applying_client_layout = true
+	CoopService.connected_players = _duplicate_connected_players(_mirrored_connected_players)
+	_sync_run_data_player_count()
+	# Emit even if a packet already restored the array: the UI and FocusEmulators
+	# can still have been reset by the rest of vanilla initialization.
+	_bo_emit_connected_players_updated("client_selection_initialized")
+	_applying_client_layout = false
+	_sync_client_join_listening()
+	var menu = get_tree().root.find_node("BrotatoOnlineMenuSyncManager", true, false)
+	if menu != null:
+		menu.restore_client_selection_ui_after_layout_reset(scene)
+
+
 func reject_client_local_join(local_slot: int) -> void:
 	if local_slot > 0:
 		# An old denial cannot remove a seat already committed by a newer layout.
@@ -1525,9 +1561,13 @@ func _ensure_client_device_for_saved_seat(local_slot: int) -> void:
 	var candidates = []
 	if _previous_client_entries_by_local_slot.has(local_slot):
 		candidates.append(_previous_client_entries_by_local_slot[local_slot])
-	candidates.append([CoopService.KEYBOARD_REMAPPED_DEVICE_ID, CoopService.PlayerType.KEYBOARD_AND_MOUSE])
 	for joy in Input.get_connected_joypads():
 		candidates.append(_get_local_gamepad_entry_for_joypad(int(joy)))
+	# After an application restart there is no in-memory seat/device history.
+	# Use attached, unclaimed controllers before falling back to the keyboard;
+	# otherwise a second client's pad is ignored and its saved seat becomes keyboard.
+	# Explicit choices retained from this process still take precedence above.
+	candidates.append([CoopService.KEYBOARD_REMAPPED_DEVICE_ID, CoopService.PlayerType.KEYBOARD_AND_MOUSE])
 	for entry in candidates:
 		if entry.empty():
 			continue

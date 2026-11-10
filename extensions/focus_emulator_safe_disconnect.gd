@@ -10,6 +10,35 @@ signal bo_focused_control_changed(control)
 var _bo_last_focus_event_control_id = -1
 
 
+func _bo_accepts_selection_input() -> bool:
+	# A newly created selection scene receives input before the menu poll has
+	# configured its emulators. Remote seats must not consume local events even
+	# during that first frame (including legacy device-0 placeholder layouts).
+	var scene = get_tree().current_scene
+	if get_tree().root.get_meta("brotato_online_session_active", false) and scene != null:
+		if str(scene.filename).ends_with("/character_selection.tscn") or str(scene.filename).ends_with("/weapon_selection.tscn"):
+			var slots = get_tree().root.find_node("BrotatoOnlineOnlinePlayerSlotManager", true, false)
+			if slots != null and not slots.get_local_player_indices().has(player_index):
+				return false
+	return true
+
+
+func _handle_input(event: InputEvent) -> bool:
+	if not _bo_accepts_selection_input():
+		return false
+	return ._handle_input(event)
+
+
+func _is_coop_ui_action(event: InputEvent) -> bool:
+	# Returning false from _handle_input alone is insufficient: vanilla _input
+	# also consumes non-coop actions while the join listener is off. Let them
+	# reach the locally owned emulator. Use virtual helpers, not _input itself,
+	# whose inherited notification also runs in Godot 3.
+	if not _bo_accepts_selection_input():
+		return true
+	return ._is_coop_ui_action(event)
+
+
 func _bo_on_focused_control_exiting(control_id: int) -> void:
 	# Godot calls inherited draw notifications too. Clear the reference before
 	# the grid frees it, so vanilla's queued draw never sees a deleted Control.

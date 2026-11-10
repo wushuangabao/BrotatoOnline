@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-> **Independent fork 6.8.1 (2026-11-09)**. Original author: six666. Fork maintainer: wushuangabao.
+> **Independent fork 6.8.2 (2026-11-10)**. Original author: six666. Fork maintainer: wushuangabao.
 > Trusted multiplayer for friends: personal shops and mechanical upgrades apply locally, then synchronize results. Supports multiple local players per client, up to four players total, with retry and automatic battle entry fixes. See [CHANGELOG.md](CHANGELOG.md) for details and validation scope.
 > New Mod ID: `wushuangabao-BrotatoOnlineFriends`, intended for a separate Workshop item. Every player must use this version and disable the original or older fixed releases with ID `six666-BrotatoOnline`.
 > [Original project](https://github.com/xx666zz/BrotatoOnline) · [Fixed source](https://github.com/wushuangabao/BrotatoOnline) · [GPL-3.0 license](LICENSE)
@@ -20,6 +20,14 @@ The goal is not to replace Brotato's original co-op flow with a completely diffe
 
 ## Usage
 
+### Selection input and saved-run fixes (6.8.2)
+
+Fixes hidden character lists and extra join panels after client initialization, and prevents local input from affecting remote seats on character/weapon screens. When restoring additional client seats, available connected controllers are tried before falling back to the keyboard; existing in-process device choices retain priority.
+
+Keep the original save and online identity files to continue a 6.8.1 network co-op run. Connect the devices you intend to use now, let the original host choose Continue, and have clients join the newly opened room from the title screen. Saved identity determines character ownership; the current setup can use two controllers or a controller plus keyboard on either peer.
+
+Four original 6.8.1 network saves were each resumed with four host/client input configurations: all 16 paths and 944 runtime assertions passed. Selection regressions passed another 414 assertions. These use independent local processes, real ENet/LAN and injected input. Physical-controller hotplug swaps remain undiagnosed and unfixed; Steam across computers and Workshop installation still need testing. See [save compatibility](docs/save-compatibility-validation.md) and [input validation](docs/selection-input-validation.md).
+
 ### Wave settlement fixes (6.8.1)
 
 When the host reaches the shop first, clients finish local wave-end callbacks, harvesting and per-wave cleanup before applying the host's final state and changing scenes. This fixes skipped local step accounting and missing leftover-material ledger synchronization, and prevents repeated settlement. Local two-process LAN checks cover delayed settlement, crates and upgrades, dinosaur eggs and mutations, endless harvesting decay and material conversion. See the [validation report](docs/wave-settlement-validation.md).
@@ -32,7 +40,7 @@ The host still coordinates the shared battle and scene changes. The start handsh
 
 The handoff includes full personal `PlayerRunData` (equipment and modifications, items and effects, health, level/XP, gold and chips), plus offers, locks and reroll counters. The host combines these with shared wave, difficulty, zone, DLC, elite and event configuration to rebuild the start snapshot. Previous-wave enemies, projectiles and temporary scene nodes are not carried as personal state.
 
-This release uses network protocol **`6.5.0`**. Update the host and every client to **6.8.1**; it cannot mix with 6.7.0 or the original Mod. Settings and online identity storage use the new ID and are not automatically migrated. Other mods that declare dependencies/load order or find the API using the old Mod ID need to adopt the new ID.
+This release uses network protocol **`6.5.0`**. Update the host and every client to **6.8.2**; it cannot mix with 6.7.0 or the original Mod. Settings and online identity storage use the new ID and are not automatically migrated. Other mods that declare dependencies/load order or find the API using the old Mod ID need to adopt the new ID.
 
 ### Multiple local players on a client
 
@@ -42,7 +50,7 @@ After joining a room, remain on character selection and hold the vanilla co-op j
 - Local players select characters, shop, move, take damage and die independently. Adding seats is limited to character selection, before the run starts.
 - The first player uses the configured online input device. Select keyboard/mouse there first if controllers should join as additional players.
 - Reconnection retains all seats belonging to that client. Connect enough devices before continuing a saved run. Kicking a client removes all of its seats.
-- Update the host and every client to 6.8.1 (network protocol `6.5.0`). It cannot mix with older releases or the original Mod.
+- Update the host and every client to 6.8.2 (network protocol `6.5.0`). It cannot mix with older releases or the original Mod.
 
 Automated verification uses two local Godot processes, real LAN transport and injected device input. Physical controllers and Steam sessions across computers still require testing. See [tests/README.md](tests/README.md) for commands and scope.
 
@@ -137,7 +145,7 @@ Current compatibility:
 | ------------------------------- | ---------- |
 | Brotato (locally tested)         | `1.2.0.1` |
 | ModLoader                       | `6.3.0`    |
-| Brotato Online release          | `6.8.1`    |
+| Brotato Online release          | `6.8.2`    |
 | Brotato Online network protocol | `6.5.0` |
 | Maximum players                 | `4`        |
 

@@ -632,6 +632,10 @@ func _process(_delta: float) -> void:
 
 	if _is_selection_like_screen_fast(fast_screen):
 		var t_selection = OS.get_ticks_usec()
+		if _is_client_interactive_selection_screen(fast_screen):
+			var slots = _get_slot_manager()
+			if slots != null:
+				_configure_online_focus_emulator_input_owners(slots.get_local_player_indices(), "selection_tick")
 		_enforce_focus_change_cancels_ready_on_current_selection()
 		_try_apply_online_catalog_to_current_selection()
 		_try_apply_host_dlc_gate_to_current_selection(fast_screen)
@@ -10710,6 +10714,20 @@ func _try_apply_pending_host_state() -> void:
 
 	if _apply_host_selection_state_to_current_ui(_pending_state_from_host):
 		_pending_state_from_host = {}
+
+
+func restore_client_selection_ui_after_layout_reset(selection: Node) -> void:
+	if selection != _find_current_selection_node():
+		return
+	# The roster can be unchanged while vanilla has reset every UI component.
+	# Reapply cached authoritative visuals once, then restore local-owned focus.
+	_selection_apply_context_key = ""
+	_try_apply_online_catalog_to_current_selection()
+	_apply_host_selection_state_to_current_ui(_last_state_from_host)
+	var local_indices = _get_local_client_player_indices()
+	_configure_online_focus_emulator_input_owners(local_indices, "selection_initialized")
+	for player_index in local_indices:
+		_ensure_local_client_focus_exists(selection, int(player_index))
 
 
 func _apply_host_selection_state_to_current_ui(state: Dictionary) -> bool:

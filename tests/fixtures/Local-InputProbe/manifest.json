@@ -1,0 +1,29 @@
+{
+  "name": "InputProbe",
+  "namespace": "Local",
+  "version_number": "0.0.1",
+  "description": "Isolated diagnosis fixture; not a release mod",
+  "dependencies": [
+    "wushuangabao-BrotatoOnlineFriends"
+  ],
+  "extra": {
+    "godot": {
+      "authors": [
+        "Local"
+      ],
+      "tags": [],
+      "compatible_mod_loader_version": [
+        "6.3.0"
+      ],
+      "description_rich": "Local diagnostic fixture",
+      "optional_dependencies": [],
+      "load_before": [],
+      "incompatibilities": [],
+      "compatible_game_version": [
+        "1.2.0.1"
+      ],
+      "config_schema": {}
+    }
+  },
+  "website_url": ""
+}

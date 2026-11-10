@@ -1,5 +1,41 @@
 # Retry scene reload regression
 
+## 6.8.1 network save compatibility
+
+```powershell
+# Four original network saves, each resumed with all four current input combinations.
+./tests/Test-SaveCompatibility.ps1 -Matrix
+# A single save/resume combination, or the original-code negative control.
+./tests/Test-SaveCompatibility.ps1 -Case keyboard
+./tests/Test-SaveCompatibility.ps1 -Case keyboard -ResumeVersion baseline
+```
+
+Run sequentially in the isolated project described below (port 59128). `pads`, `keyboard`, `client_keyboard`, and `both_keyboard` mean respectively: both peers use two pads; only the host uses pad+keyboard; only the client uses pad+keyboard; both peers use pad+keyboard. `-Matrix` crosses all four save configurations with all four resume configurations, including changing devices on either or both peers.
+
+The runner deploys original 6.8.1 for each create phase, launches independent host/client processes with two seats each, and closes both processes before replacing production files. Every resume gets a new isolated APPDATA directory copied from the untouched original profiles (including identity files). The original save is retained and reused, never replaced with a save from a preceding resume. The runner restores checkout scripts in `finally`, retains failures, records source hashes and per-phase results, and exits unsuccessfully if any phase fails. Do not point it at a normal game installation.
+
+The fixture establishes real ENet ownership, seeds four distinct Noobs characters, weapons, items and nonzero progress, and enters the native co-op shop to save. The resumed host invokes the title screen's actual Continue button; the client reconnects through ENet and the production saved-owner handshake. No saved state is injected during resume. Checks compare data values and stable run/slot/owner identities, then require device bindings to match the **current** configuration rather than the saved configuration. Four sequential movement probes inject raw joypad-axis/key events for independently expected current devices, observing all players on both peers in the next wave. Enemy spawning is suppressed during this short movement check.
+
+The verified production fix preserves in-process explicit choices, otherwise preferring available connected controllers before the keyboard fallback when restoring additional client seats. It changes neither save format nor saved player identity. See `docs/save-compatibility-validation.md` for evidence, original-code failures, and physical-device test limitations.
+
+## Selection input and client scene initialization
+
+```powershell
+./tests/Test-SelectionInput.ps1 -ProjectPath E:/github/BrotatoMod/work/friends-input-diagnosis-20261110 -Godot E:/github/BrotatoMod/work/NoobsWantToLive-source-runner/Brotato-source.exe -Case single
+# Run LAN cases sequentially; all use localhost port 59128.
+foreach ($case in 'three', 'pads', 'keyboard', 'late_keyboard') {
+    ./tests/Test-SelectionInput.ps1 -ProjectPath E:/github/BrotatoMod/work/friends-input-diagnosis-20261110 -Godot E:/github/BrotatoMod/work/NoobsWantToLive-source-runner/Brotato-source.exe -Case $case
+}
+```
+
+Use an isolated recovered game project. Deploy this checkout (including the four `selection_input*` test files) into `mods-unpacked/wushuangabao-BrotatoOnlineFriends`. Extract the original FiveItemShop 1.1.3 and NoobsWantToLive 1.1.0 packages there, and copy `tests/fixtures/Local-InputProbe` to `mods-unpacked/Local-InputProbe`. This test-only extension disables Steam room creation so independent local processes can use production ENet; it does not replace input, roster, UI or transport methods. Do not install the fixture into a normal game. The runner verifies production and fixture hashes, records companion script hashes, isolates profiles, disables saving and retains evidence under the test project's `evidence` directory.
+
+`single` uses controlled session/roster setup with real native weapon scenes and Godot Input events. It checks keyboard/gamepad ownership, legacy device-0 alias layouts with every emulator forcibly enabled before polling, directional navigation, one confirmation/pick, all ten weapon-bearing Noobs characters, offline co-op input, exhausted placeholder allocation and atomic client layout rejection. This is not an end-to-end network test.
+
+LAN cases attach simulated controllers through `Input.joy_connection_changed`, join additional local seats through vanilla's held-button timer, and confirm selections with `Input.parse_input_event`. Fixtures place focus on a known selectable item; they do not replace the native confirmation callback. File barriers coordinate stages between processes. Cases cover two host pads plus two separate clients (`three`); two pads per peer (`pads`); host pad plus keyboard and two client pads (`keyboard`); and host pad, then two client pads, then host keyboard (`late_keyboard`). Assertions cover visible character grids, exact join-panel counts, local focus/device/ownership, four occupied panels after focus synchronization, weapon confirmation, and the roster on entering battle. These tests do not establish physical HID/Steam Input behavior, hotplug recovery, Steam WAN or a full playthrough.
+
+For a negative control, deploy the 6.8.1 release scripts into the isolated project while retaining the current fixtures, and pass `-BaselineArchive <6.8.1.zip>`. The runner validates production hashes against the archive; failures are expected. Restore the checkout's scripts before the fixed-code run. See `docs/selection-input-validation.md` for evidence and scope.
+
 ## Trusted personal shop results
 
 ```powershell
