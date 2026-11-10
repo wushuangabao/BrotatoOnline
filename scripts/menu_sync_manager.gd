@@ -4946,8 +4946,7 @@ func _build_shop_tracked_item_effects_snapshot(player_index: int, owned_hashes: 
 		return result
 	for raw_key in source.keys():
 		var key_hash = int(raw_key)
-		if not owned_hashes.empty() and not owned_hashes.has(key_hash):
-			continue
+		# Tracking keys may belong to a Mod counter rather than an inventory item.
 		result[str(key_hash)] = _duplicate_shop_sync_variant(source[raw_key])
 	return result
 
@@ -6257,6 +6256,9 @@ func _apply_one_serialized_player_run_data(player_index: int, run_data_state, pr
 	if keep_local_appearances and player_index < RunData.players_data.size() and RunData.players_data[player_index] != null:
 		preserved_local_appearances = RunData.players_data[player_index].appearances.duplicate()
 
+	var movement = get_parent().get_node_or_null("BrotatoOnlineMovementRewards")
+	var preserve_tracking = preserve_client_local_runtime_state and movement != null and movement.preserve_local(player_index)
+	var old_tracking = RunData.tracked_item_effects[player_index].duplicate(true) if preserve_tracking else {}
 	var player_data = PlayerRunData.new()
 	player_data.deserialize(run_data_state)
 	player_data.pending_mutations = int(run_data_state.get("pending_mutations", 0))
@@ -6283,7 +6285,13 @@ func _apply_one_serialized_player_run_data(player_index: int, run_data_state, pr
 	RunData.players_data[player_index] = player_data
 	_rebind_selected_weapon_from_inventory(player_index)
 	_apply_shop_tracked_item_effects_from_run_data(player_index, run_data_state)
+	if preserve_tracking:
+		RunData.tracked_item_effects[player_index] = old_tracking
+		movement.merge_pending_effects(player_index, player_data, run_data_state)
 
+	if movement != null:
+		movement.accept_applied_snapshot(player_index, player_data, run_data_state)
+		movement.restore_rejoined_player(player_index, player_data, run_data_state, preserve_tracking)
 	if preserve_local_health and preserved_current_health >= 0:
 		var max_health = int(RunData.get_player_max_health(player_index)) if RunData.has_method("get_player_max_health") else preserved_current_health
 		RunData.players_data[player_index].current_health = int(clamp(preserved_current_health, 1, max(1, max_health)))
@@ -12044,6 +12052,9 @@ func _duplicate_with_synced_value_if_needed(data, state: Dictionary):
 
 func _serialize_player_run_data_for_shop_sync(index: int, mode: String) -> Dictionary:
 	var state = _serialize_player_run_data_for_shop_sync_base(index, mode)
+	var movement = get_parent().get_node_or_null("BrotatoOnlineMovementRewards")
+	if movement != null:
+		state["online_movement_rewards"] = movement.get_total(index)
 	if index >= 0 and index < RunData.get_player_count():
 		var player = RunData.players_data[index]
 		state["pending_mutations"] = player.pending_mutations

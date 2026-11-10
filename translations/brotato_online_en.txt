@@ -180,3 +180,4 @@ BROTATO_ONLINE_STEAM_RESUME_REASSIGNMENT_REQUIRED,"This room is waiting for the 
 BROTATO_ONLINE_STEAM_LAN_VERSION_DETAILS,Local LAN handshake: %s; Remote LAN handshake: %s
 BROTATO_ONLINE_STEAM_VERSION_UNKNOWN,Not provided
 BROTATO_ONLINE_PUBLIC_LOBBY_VERSION_UNKNOWN,Not provided
+BROTATO_ONLINE_REWARDS_WAITING,Waiting for client rewards and statistics. A disconnected player must rejoin to finish this wave.

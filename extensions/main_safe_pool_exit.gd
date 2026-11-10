@@ -364,6 +364,9 @@ func _on_WaveTimer_timeout() -> void:
 		if replica != null and replica.has_method("intercept_client_wave_timeout"):
 			if bool(replica.intercept_client_wave_timeout("main_wave_timer_timeout")):
 				return
+	var movement = get_tree().root.find_node("BrotatoOnlineMovementRewards", true, false)
+	if movement != null and not movement.before_wave_end(self):
+		return
 	_bo_wave_effects_started = true
 	._on_WaveTimer_timeout()
 

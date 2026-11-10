@@ -47,7 +47,12 @@ try {
             $dataRoot="$saveRoot/userdata"
             if($step.phase -eq 'create' -or $ResumeVersion -eq 'baseline'){
                 $zip=[System.IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $BaselineArchive).Path)
-                try {foreach($rel in $production){$entry=$zip.GetEntry(('mods-unpacked/wushuangabao-BrotatoOnlineFriends/'+$rel).Replace('\','/')); if(-not $entry){throw "Missing release entry: $rel"}; [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry,(Join-Path $target $rel),$true)}} finally {$zip.Dispose()}
+                try {foreach($rel in $production){$entry=$zip.GetEntry(('mods-unpacked/wushuangabao-BrotatoOnlineFriends/'+$rel).Replace('\','/')); if(-not $entry){
+                    if($rel.Replace('\','/') -notin @('scripts/movement_rewards.gd','extensions/movement_rewards.gd')){throw "Missing release entry: $rel"}
+                    $absent=Join-Path $target $rel
+                    if(Test-Path -LiteralPath $absent){Remove-Item -LiteralPath $absent}
+                    continue
+                }; [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry,(Join-Path $target $rel),$true)}} finally {$zip.Dispose()}
             } else {
                 foreach($rel in $production){Copy-Item -LiteralPath (Join-Path $repo $rel) -Destination (Join-Path $target $rel)}
             }
@@ -56,7 +61,7 @@ try {
                 $dataRoot="$saveRoot/$($step.name)-userdata"
                 Copy-Item -LiteralPath "$saveRoot/userdata" -Destination $dataRoot -Recurse
             }
-            foreach($rel in $production){"$rel SHA256=$((Get-FileHash -LiteralPath (Join-Path $target $rel)).Hash)" | Add-Content "$phaseDir/source.txt"}
+            foreach($rel in $production){if(Test-Path -LiteralPath (Join-Path $target $rel)){"$rel SHA256=$((Get-FileHash -LiteralPath (Join-Path $target $rel)).Hash)" | Add-Content "$phaseDir/source.txt"}else{"$rel ABSENT_IN_BASELINE" | Add-Content "$phaseDir/source.txt"}}
             foreach($rel in @('save_compatibility.gd','save_compatibility.tscn')){"tests/$rel SHA256=$((Get-FileHash -LiteralPath "$target/tests/$rel").Hash)" | Add-Content "$phaseDir/source.txt"}
             $step.config | ConvertTo-Json | Set-Content "$phaseDir/input-config.json"
             $processes=@{}

@@ -4,7 +4,7 @@ This Mod is an unofficial, independently maintained fork of Brotato Online by si
 
 Designed for cooperative play between trusted friends, rather than anti-cheat enforcement. More responsive client actions and more reliable synchronization.
 
-[b]Current version:[/b] 6.8.2
+[b]Current version:[/b] 6.8.3
 [b]Original author:[/b] six666
 [b]Fork maintainer:[/b] wushuangabao
 [b]Mod ID:[/b] wushuangabao-BrotatoOnlineFriends
@@ -24,6 +24,9 @@ Prevents entering combat before the final purchase or upgrade has synchronized.
 [*][b]More reliable retries and battle entry[/b]
 Fixes clients failing to re-enter combat after retrying a failed wave, and lets late clients automatically enter after the host starts.
 
+[*][b]Client rewards and statistics[/b]
+Fixes lost in-run rewards for characters such as Hiker. Display-only character statistics are synchronized at the end of each wave.
+
 [*][b]Complete local wave settlement[/b]
 When the host reaches the shop first, clients finish local settlement before synchronizing the scene transition, preserving local callbacks and progress records.
 [/list]
@@ -31,7 +34,7 @@ When the host reaches the shop first, clients finish local settlement before syn
 [h2]How to Use[/h2]
 
 [list]
-[*]Disable other multiplayer Mods. The host and every client should subscribe to the same 6.8.2 version. Fully exit and restart the game after updating.
+[*]Disable other multiplayer Mods. The host and every client should subscribe to the same 6.8.3 version. Fully exit and restart the game after updating.
 [*]Join the same room through a Steam lobby or LAN.
 [*]To add local players on a client, hold the join button on each additional device while on the character selection screen.
 [*]Additional players can join only before the run starts. The room supports four players total.
@@ -41,7 +44,7 @@ When the host reaches the shop first, clients finish local settlement before syn
 [h2]Compatibility and Notes[/h2]
 
 [list]
-[*]This version uses network protocol 6.5.0. All players should use the same latest version; do not mix different versions.
+[*]This version uses network protocol 6.5.1. Update every peer to 6.8.3; 6.8.2 and earlier versions cannot join.
 [*]6.8.1 network co-op saves can be continued; keep the save and identity files. Data from the original six666-BrotatoOnline ID is not migrated automatically.
 [*]Not all character, item and third-party Mod combinations have been verified.
 [/list]
@@ -71,6 +74,9 @@ Fixed skipped client settlement when the host entered the shop first, and added 
 
 [*][b]6.8.2 | Selection Input and Saved Runs[/b]
 Fixes hidden character lists, extra join panels, local input affecting remote seats, and restored client seats ignoring a second controller in favor of the keyboard. Undiagnosed physical hotplug swaps have not been changed.
+
+[*][b]6.8.3 | Client Rewards and Generic Statistics[/b]
+Fixes lost or duplicated movement rewards, stale data overwriting actual maximum health, and missing custom statistics or array values. Adds same-attempt rejoin recovery, retry rollback and final-record waiting. Reward/statistics regressions passed 91 assertions; the saved-run input matrix passed 944 assertions.
 [/list]
 
 [h2]Credits and Source[/h2]

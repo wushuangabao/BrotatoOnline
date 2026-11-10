@@ -1512,6 +1512,9 @@ func _handle_client_host_disconnect(reason: String) -> void:
 	if _client_host_disconnect_teardown_active or not _session_active or _is_game_host():
 		return
 
+	var rewards = get_parent().get_node_or_null("BrotatoOnlineMovementRewards")
+	if rewards != null:
+		rewards.suspend_owner_state()
 	_client_host_disconnect_teardown_active = true
 	var was_in_live_run = _is_in_active_online_run_scene() or _is_in_end_run_scene()
 
@@ -3047,11 +3050,11 @@ func _annotate_online_session_message(message: Dictionary) -> Dictionary:
 
 
 func _is_battle_generation_message_type(msg_type: String) -> bool:
-	return msg_type == "battle_aim" or msg_type == "battle_snapshot" or msg_type == "battle_reliable_events" or msg_type == "battle_terminal_state" or msg_type == "battle_input" or msg_type == "damage_claim_batch" or msg_type == "player_hp_state" or msg_type == "player_state" or msg_type == "entity_kill_claim" or msg_type == "boss_damage_report" or msg_type == "material_hit" or msg_type == "material_death" or msg_type == "dlc_pickups" or msg_type == "pickup_claim" or msg_type == "battle_entity_resync_request"
+	return msg_type == "movement_rewards" or msg_type == "battle_aim" or msg_type == "battle_snapshot" or msg_type == "battle_reliable_events" or msg_type == "battle_terminal_state" or msg_type == "battle_input" or msg_type == "damage_claim_batch" or msg_type == "player_hp_state" or msg_type == "player_state" or msg_type == "entity_kill_claim" or msg_type == "boss_damage_report" or msg_type == "material_hit" or msg_type == "material_death" or msg_type == "dlc_pickups" or msg_type == "pickup_claim" or msg_type == "battle_entity_resync_request"
 
 
 func _is_client_to_host_battle_message_type(msg_type: String) -> bool:
-	return msg_type == "battle_input" or msg_type == "damage_claim_batch" or msg_type == "player_hp_state" or msg_type == "player_state" or msg_type == "entity_kill_claim" or msg_type == "boss_damage_report" or msg_type == "material_hit" or msg_type == "dlc_pickups" or msg_type == "pickup_claim" or msg_type == "battle_entity_resync_request"
+	return msg_type == "movement_rewards" or msg_type == "battle_input" or msg_type == "damage_claim_batch" or msg_type == "player_hp_state" or msg_type == "player_state" or msg_type == "entity_kill_claim" or msg_type == "boss_damage_report" or msg_type == "material_hit" or msg_type == "dlc_pickups" or msg_type == "pickup_claim" or msg_type == "battle_entity_resync_request"
 
 
 func _annotate_battle_generation_fields(wire: Dictionary) -> void:
@@ -3163,7 +3166,7 @@ func _get_message_lobby_id(message: Dictionary) -> String:
 
 
 func _is_known_online_message_type(msg_type: String) -> bool:
-	if msg_type in ["client_local_join", "client_local_join_result"]:
+	if msg_type in ["client_local_join", "client_local_join_result", "movement_rewards", "movement_rewards_seal", "movement_rewards_ack"]:
 		return true
 	if msg_type in ["player_kicked", "player_removed", "player_roster_commit"]:
 		return true
@@ -3892,6 +3895,10 @@ func _handle_p2p_message(from_steam_id: String, message: Dictionary) -> void:
 		_handle_p2p_message(from_steam_id, reassembled)
 		return
 
+	if msg_type in ["movement_rewards", "movement_rewards_seal", "movement_rewards_ack"]:
+		get_parent().get_node("BrotatoOnlineMovementRewards").receive(from_steam_id, message)
+		return
+
 	if msg_type == "bo_mod_message":
 		var api = _get_brotato_online_api()
 		if api != null and api.has_method("receive_mod_message"):
@@ -4114,6 +4121,11 @@ func _handle_p2p_message(from_steam_id: String, message: Dictionary) -> void:
 			return
 		if _client_should_drop_stale_menu_scene_state(message):
 			return
+		var resume_generation = message.get("resume_battle_generation", {})
+		if str(message.get("screen", "")) == "game" and typeof(resume_generation) == TYPE_DICTIONARY:
+			var resumed_start = int(resume_generation.get("start_id", 0))
+			if resumed_start > 0 and resumed_start >= max(_client_active_battle_start_id, _client_expected_battle_start_id):
+				_activate_client_battle_generation_for_send(resumed_start, str(resume_generation.get("kind", "")), str(resume_generation.get("retry_context", "")), "scene_rejoin")
 		_client_resume_assignment_pending = false
 		_stop_client_hello_retry("menu_scene_state")
 		_apply_host_zone_sync_for_client(message, "menu_scene_state")
@@ -6708,7 +6720,7 @@ func _compact_wave_timer_state(snapshot: Dictionary) -> Array:
 
 func _compact_economy_state(snapshot: Dictionary) -> Array:
 	var economy = snapshot.get("economy_state", {})
-	if typeof(economy) != TYPE_DICTIONARY:
+	if typeof(economy) != TYPE_DICTIONARY or economy.empty():
 		return []
 	var result_players = []
 	var players = economy.get("players", [])
@@ -6724,7 +6736,8 @@ func _compact_economy_state(snapshot: Dictionary) -> Array:
 				int(p.get("level", 0)),
 				float(p.get("next_level_xp", 0.0)),
 				int(p.get("hp", -1)),
-				int(p.get("max_hp", -1))
+				int(p.get("max_hp", -1)),
+				p.get("movement_rewards", {})
 			])
 	return [int(economy.get("server_time_msec", snapshot.get("server_time_msec", 0))), result_players]
 
@@ -6965,7 +6978,8 @@ func _expand_compact_battle_snapshot(message: Dictionary) -> Dictionary:
 					"level": int(row[4]),
 					"next_level_xp": float(row[5]),
 					"hp": int(row[6]),
-					"max_hp": int(row[7])
+					"max_hp": int(row[7]),
+					"movement_rewards": row[8] if row.size() > 8 else {}
 				})
 		expanded["economy_state"] = {"server_time_msec": int(ec[0]), "players": eco_players}
 
@@ -7488,6 +7502,9 @@ func _send_host_scene_transition_to_client(steam_id: String, force: bool = false
 		_host_scene_transition_payload_cache_msec = now
 		_host_scene_transition_payload_cache_state = state.duplicate(true)
 
+	# Shared by LAN and Steam: a rejoined owner missed the original start commit.
+	if screen == "game" and _host_current_battle_start_id > 0:
+		state["resume_battle_generation"] = {"start_id":_host_current_battle_start_id, "kind":_host_current_battle_start_kind, "retry_context":_host_current_retry_context_key}
 	var send_ok = _send_p2p_json(steam_id, state, true)
 	if send_ok:
 		_sent_scene_transition_key_by_steam_id[steam_id] = key

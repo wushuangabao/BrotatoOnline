@@ -2760,12 +2760,11 @@ func _apply_host_economy_state(snapshot: Dictionary) -> void:
 		return
 	if economy.empty():
 		return
-	var wave_state = snapshot.get("wave_timer_state", {})
-	if typeof(wave_state) == TYPE_DICTIONARY and bool(wave_state.get("running", false)):
-		var now = OS.get_ticks_msec()
-		if now - _last_economy_apply_msec < 180:
-			return
-		_last_economy_apply_msec = now
+	# Host already throttles samples. A second time gate can starve every nonempty
+	# sample between empty snapshot frames; deduplicate by the host sample stamp.
+	var movement = get_parent().get_node("BrotatoOnlineMovementRewards")
+	if not movement.accept_economy(int(economy.get("server_time_msec", 0))):
+		return
 	var players = economy.get("players", [])
 	if typeof(players) != TYPE_ARRAY:
 		return
@@ -2785,6 +2784,7 @@ func _apply_host_economy_player_state(state: Dictionary) -> void:
 	if player_data == null:
 		return
 	var gold = int(state.get("gold", state.get("materials", player_data.gold)))
+	gold = get_parent().get_node("BrotatoOnlineMovementRewards").economy_gold(player_index, state, gold)
 	var xp = float(state.get("xp", player_data.current_xp))
 	var level = int(state.get("level", player_data.current_level))
 	var old_gold = int(player_data.gold)
@@ -2798,6 +2798,7 @@ func _apply_host_economy_player_state(state: Dictionary) -> void:
 	player_data.current_xp = xp
 	var hp = int(state.get("hp", -1))
 	var max_hp = int(state.get("max_hp", -1))
+	max_hp = get_parent().get_node("BrotatoOnlineMovementRewards").economy_max_hp(player_index, state, max_hp)
 	# Economy snapshots may arrive after battle end or around death timing. HP<=0 is
 	# sufficient to mark a remote player as dead even if the separate dead flag lags.
 	_apply_host_hp_state_to_player(player_index, hp, max_hp)

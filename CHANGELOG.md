@@ -1,5 +1,14 @@
 # Brotato Online — 非官方修复版 / Unofficial Fixed Release
 
+## 6.8.3 — 2026-11-10 — 客户端收益与统计同步
+
+- 原生步数效果只由对应玩家的本机执行；材料和属性以累计差额同步、确认和去重，避免主机旧快照撤销收益或重复增加属性。修复旧最大生命采样反向覆盖客户端实际生命上限的问题。
+- 通用数字/数组统计按本地玩家归属交接，纯显示统计在波末上传；保留自定义统计键、零值和空数组，不再依赖 Noobs 专用网络统计适配。
+- 同次战斗重新入房恢复尚未确认的收益，死亡重试及读档按新检查点恢复；主机等待最终记录时暂停战斗并显示提示，重连交接完成后继续原生结算。
+- 网络协议升级为 `6.5.1`，拒绝 6.8.2 及更早版本混入；所有玩家须一起更新到 6.8.3。存档格式不变。收益/统计回归 91 条、原始 6.8.1 联机旧档矩阵 944 条断言通过；详细证据与未验证范围见 `docs/movement-rewards-validation.md`。
+
+Native movement rewards now use owner-local execution and acknowledged cumulative deltas. Numeric and array tracking transfers at wave end, including custom keys and empty arrays. Same-attempt rejoin preserves pending owner gains; retry and saved-game resume use their checkpoints. Combat pauses while the host waits for final records. Network protocol 6.5.1 rejects older peers; update everyone to 6.8.3. The save format is unchanged. Reward/statistics regressions passed 91 assertions, and the original 6.8.1 LAN save matrix passed all 16 paths and 944 assertions.
+
 ## 6.8.2 — 2026-11-10 — 选人输入与联机旧档续玩修复
 
 - 客户端选人初始化清空阵容时延后恢复权威布局，并重新同步界面与焦点，修复角色列表隐藏和多余加入框。

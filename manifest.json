@@ -1,7 +1,7 @@
 {
   "name": "BrotatoOnlineFriends",
   "namespace": "wushuangabao",
-  "version_number": "6.8.2",
+  "version_number": "6.8.3",
   "description": "Brotato Online Friends：朋友间信任联机，个人商店与机械升级本地立即生效，支持客户端本地多人、全房间最多四人。",
   "website_url": "https://github.com/wushuangabao/BrotatoOnline",
   "dependencies": [],
@@ -9,7 +9,7 @@
     "godot": {
       "authors": ["six666", "wushuangabao"],
       "tags": ["Utilities"],
-      "description_rich": "Brotato Online Friends 6.8.2（2026-11-10），基于 six666 的 Brotato Online，由 wushuangabao 独立维护。采用新 Mod ID wushuangabao-BrotatoOnlineFriends，可作为独立创意工坊条目发布。个人商店由客户端本地执行购买、刷新、锁定、合成、回收、拆解和机械升级，房主接收并转发结果；开打前交接完整个人运行状态。6.8.2 修复选人初始化导致角色列表隐藏或多余加入框、本机输入影响远程席位，以及续档时客户端第二手柄被优先绑定为键盘。原始 6.8.1 联机存档经四种主客设备组合交叉续档验证，角色、装备和进度保持正确，输入按当前设备配置恢复。保留 6.8.1 波次结算与材料账本同步修复。修复机械升级无响应、武器误匹配和焦点跳转，保留客户端本地多人、失败重试与自动进场功能，全房间最多四人。网络协议 6.5.0，所有玩家须使用同一版本，并停用原版及旧修复版 six666-BrotatoOnline。独立 ID 使用单独的 Mod 设置与身份存储。已进行本机多进程 LAN 自动验证；实体手柄、Steam 跨机器联机与创意工坊订阅安装尚未验证。详见 CHANGELOG.md。",
+      "description_rich": "Brotato Online Friends 6.8.3（2026-11-10），基于 six666 的 Brotato Online，由 wushuangabao 独立维护。支持 Steam/LAN 联机、客户端本地多人和个人商店，全房间最多四人。6.8.3 修复客户端原生步数产生的材料与属性同步、完整状态覆盖或重复增加收益、实际最大生命被旧数据覆盖的问题；通用数字和数组统计在波末交接，支持自定义统计键，不重复累加双方模拟伤害。同进程重回原战斗可补交未确认收益；重试和旧档续玩使用对应检查点。主机等待最终记录时暂停战斗，交接完成后继续原生结算。保留 6.8.2 选人输入与旧档设备恢复修复，以及 6.8.1 波末结算修复。存档格式不变，原始 6.8.1 合作存档已经真实 LAN 交叉续档验证。Mod ID 为 wushuangabao-BrotatoOnlineFriends，网络协议 6.5.1；主机和客户端必须一起更新到 6.8.3，不能与 6.8.2 或更早版本混用，并须停用 six666-BrotatoOnline。实体手柄热插拔、Steam 跨机器及创意工坊订阅安装尚未验证；未交接收益的恢复限同一游戏进程，不保证崩溃或断电后的恢复。详见 CHANGELOG.md。",
       "optional_dependencies": [],
       "load_before": [],
       "incompatibilities": ["six666-BrotatoOnline"],

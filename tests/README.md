@@ -130,3 +130,9 @@ Deploy the current production scripts plus `wave_settlement_lan.gd`, `wave_settl
 The client must remain in its old Main scene until the injected delay is released. Assertions cover the `end_of_the_wave` signal, local ProgressData steps, per-wave reset, currency, XP/level, wave-end stats, harvesting growth/decay, pending mutations, a dinosaur egg advancing once, and the shared bonus-material ledger. After native settlement, the test invokes all three timer callbacks again and delivers three duplicate shop states; no measured reward or callback may repeat. Host/client final snapshots must match.
 
 Controlled setup uses no enemies, shortened waves, seeded bonus-material accounting and a queued crate; it does not test physical pickup claims, Steam WAN, achievement-server writes or every item combination. The crate/upgrade actions, native settlement, production start handshake and ENet scene transfer are real. See `docs/wave-settlement-validation.md` for the retained pre-fix failure and post-fix evidence.
+
+## Movement rewards and owner tracking (6.8.3)
+
+`Test-MovementRewardsLan.ps1 -Case hiker -WaitRejoin -OnlinePackage <candidate.zip>` runs two retail game processes over real localhost ENet. Also run `-Case cat`, `-Case tracking -HardRejoin`, and `-Case multi` sequentially. The runner requires FiveItemShop 1.1.3 and the Noobs review package with its old Online tracking adapter removed. It refuses to replace ZIPs while the target game is running, verifies candidate entries against current source, records package hashes and uses fresh isolated user data.
+
+The probe drives native movement, damage, death/retry and UI callbacks. Report/ACK loss, snapshot order and old-packet replay are controlled injections. Multi-seat input is synthetic; it does not test physical controllers. See `docs/movement-rewards-validation.md` for results and remaining limits.

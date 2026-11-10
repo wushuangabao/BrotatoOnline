@@ -1365,6 +1365,7 @@ func _build_economy_state(locator: Node) -> Dictionary:
 		player_states.append({
 			"player_index": i,
 			"materials": gold,
+			"movement_rewards": get_parent().get_node("BrotatoOnlineMovementRewards").get_wire_total(i),
 			"gold": gold,
 			"xp": xp,
 			"level": level,
