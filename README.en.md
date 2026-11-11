@@ -22,9 +22,9 @@ The goal is not to replace Brotato's original co-op flow with a completely diffe
 
 ### Equipment effects and linked statistics (6.8.4)
 
-Fixes missing effect updates after weapon purchases, combinations and sales, lingering structure bonuses, and stale item-count or linked-stat caches. Restored inventory effects are rebound to their owning equipment. Nested burning data and description arguments, including flame turrets, are preserved in full. These are generic synchronization fixes with no character-specific networking code.
+Fixes missing effect updates after weapon purchases, combinations and sales, lingering structure bonuses, and stale item-count or linked-stat caches. Restored inventory effects are rebound to their owning equipment. Nested burning data and description arguments, including flame turrets, are preserved in full. These are generic synchronization fixes with no character-specific networking code. Also fixes growing description arguments after repeated synchronization and duplicated native subeffects, including Seashell, Javelin and Builder effects.
 
-Update every peer to **6.8.4** (network protocol **6.5.2**). The save format is unchanged. Validation covers purchases, combinations and sales by both peers, repeated state restoration and wave transitions; see [equipment-effect validation](docs/equipment-effects-validation.md). Physical devices and Steam across computers are outside this automated validation.
+Use the final **6.8.4** on every peer (network protocol **6.5.3**). The save format is unchanged. Validation covers purchases, combinations and sales by both peers, repeated state restoration and wave transitions; see [latest regression validation](docs/effect-lifecycle-validation.md). Physical devices and Steam across computers are outside this automated validation.
 
 ### Client rewards and statistics (6.8.3)
 
@@ -54,7 +54,7 @@ The host still coordinates the shared battle and scene changes. The start handsh
 
 The handoff includes full personal `PlayerRunData` (equipment and modifications, items and effects, health, level/XP, gold and chips), plus offers, locks and reroll counters. The host combines these with shared wave, difficulty, zone, DLC, elite and event configuration to rebuild the start snapshot. Previous-wave enemies, projectiles and temporary scene nodes are not carried as personal state.
 
-This release uses network protocol **`6.5.2`**. Update the host and every client to **6.8.4**; it cannot mix with 6.8.3 or earlier releases. Settings and online identity storage use the new ID and are not automatically migrated. Other mods that declare dependencies/load order or find the API using the old Mod ID need to adopt the new ID.
+This release uses network protocol **`6.5.3`**. Update the host and every client to **6.8.4**; it cannot mix with 6.8.3 or earlier releases. Settings and online identity storage use the new ID and are not automatically migrated. Other mods that declare dependencies/load order or find the API using the old Mod ID need to adopt the new ID.
 
 ### Multiple local players on a client
 
@@ -64,7 +64,7 @@ After joining a room, remain on character selection and hold the vanilla co-op j
 - Local players select characters, shop, move, take damage and die independently. Adding seats is limited to character selection, before the run starts.
 - The first player uses the configured online input device. Select keyboard/mouse there first if controllers should join as additional players.
 - Reconnection retains all seats belonging to that client. Connect enough devices before continuing a saved run. Kicking a client removes all of its seats.
-- Update the host and every client to 6.8.4 (network protocol `6.5.2`). It cannot mix with older releases or the original Mod.
+- Update the host and every client to 6.8.4 (network protocol `6.5.3`). It cannot mix with older releases or the original Mod.
 
 Automated verification uses two local Godot processes, real LAN transport and injected device input. Physical controllers and Steam sessions across computers still require testing. See [tests/README.md](tests/README.md) for commands and scope.
 
@@ -160,7 +160,7 @@ Current compatibility:
 | Brotato (locally tested)         | `1.2.0.1` |
 | ModLoader                       | `6.3.0`    |
 | Brotato Online release          | `6.8.4`    |
-| Brotato Online network protocol | `6.5.2` |
+| Brotato Online network protocol | `6.5.3` |
 | Maximum players                 | `4`        |
 
 ## Network Architecture

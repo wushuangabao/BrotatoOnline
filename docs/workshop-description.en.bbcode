@@ -47,7 +47,7 @@ When the host reaches the shop first, clients finish local settlement before syn
 [h2]Compatibility and Notes[/h2]
 
 [list]
-[*]This version uses network protocol 6.5.2. Update every peer to 6.8.4; 6.8.3 and earlier versions cannot join.
+[*]This version uses network protocol 6.5.3. Use the final 6.8.4 on every peer; 6.8.3 and earlier versions cannot join.
 [*]6.8.1 network co-op saves can be continued; keep the save and identity files. Data from the original six666-BrotatoOnline ID is not migrated automatically.
 [*]Not all character, item and third-party Mod combinations have been verified.
 [/list]
@@ -82,7 +82,7 @@ Fixes hidden character lists, extra join panels, local input affecting remote se
 Fixes lost or duplicated movement rewards, stale data overwriting actual maximum health, and missing custom statistics or array values. Adds same-attempt rejoin recovery, retry rollback and final-record waiting. Reward/statistics regressions passed 91 assertions; the saved-run input matrix passed 944 assertions.
 
 [*][b]6.8.4 | Equipment Effects and Linked Statistics[/b]
-Fixes detached equipment-effect references, stale item counts and linked statistics, and missing nested flame-turret data. Tests cover purchases, combinations, sales, repeated synchronization and wave transitions on both peers, using Xiao Tian Cai and vanilla Streamer in normal and endless modes. See the source repository validation report for scope and limits.
+Fixes detached equipment-effect references, stale item counts and linked statistics, and missing nested flame-turret data. Also fixes growing description arguments and duplicated native subeffects, including Seashell, Javelin and Builder effects. Tests cover purchases, combinations, sales, repeated synchronization and wave transitions on both peers, using Xiao Tian Cai and vanilla Streamer in normal and endless modes. See the source repository validation report for scope and limits.
 [/list]
 
 [h2]Credits and Source[/h2]

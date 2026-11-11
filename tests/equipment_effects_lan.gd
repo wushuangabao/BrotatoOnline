@@ -105,6 +105,14 @@ func _execute(command):
 			result["same_native_state"] = JSON.print(effect.serialize(), "", true) == JSON.print(restored.effects[0].serialize(), "", true)
 			result["burning_damage"] = restored.effects[0].effects[0].burning_data.damage
 			result["custom_args"] = restored.effects[0].custom_args.size()
+		"lifecycle_checks":
+			result["checks"] = load("res://mods-unpacked/Local-NoobsProbe/effect_lifecycle_checks.gd").new().run(manager)
+		"lifecycle_fixture":
+			load("res://mods-unpacked/Local-NoobsProbe/effect_lifecycle_checks.gd").new().fixture(self)
+		"render_effects":
+			for item in RunData.players_data[index].weapons + RunData.players_data[index].items:
+				for effect in item.effects:
+					effect.get_text(index)
 		"fixture":
 			var layout = CoopService.connected_players.duplicate(true)
 			RunData.reset()
@@ -242,6 +250,8 @@ func _snapshot():
 		if current_scene is Main and i < current_scene._players.size():
 			var player = current_scene._players[i]
 			data["live_armor"] = player.current_stats.armor
+		if OS.get_environment("BROTATO_TEST_SUITE") == "lifecycle":
+			data["lifecycle"] = load("res://mods-unpacked/Local-NoobsProbe/effect_lifecycle_checks.gd").new().snapshot(i)
 		state.players.append(data)
 		var ui = current_scene.get("_coop_upgrades_ui") if current_scene is Main else null
 		var ready = false

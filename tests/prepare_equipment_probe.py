@@ -16,8 +16,8 @@ manifest = dict(name='NoobsProbe', namespace='Local', version_number='1.0.0', de
 with zipfile.ZipFile(mods / 'Local-NoobsProbe.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
     prefix = 'mods-unpacked/Local-NoobsProbe/'
     archive.writestr(prefix+'manifest.json', json.dumps(manifest))
-    for source, destination in [('tests/equipment_effects_lan.gd','mod_main.gd'), ('tests/fixtures/EquipmentEffectsProbe/base_probe.gd','base_probe.gd'), ('tests/fixtures/EquipmentEffectsProbe/session_fixture.gd','online_session_fixture.gd')]:
+    for source, destination in [('tests/equipment_effects_lan.gd','mod_main.gd'), ('tests/effect_lifecycle_checks.gd','effect_lifecycle_checks.gd'), ('tests/fixtures/EquipmentEffectsProbe/base_probe.gd','base_probe.gd'), ('tests/fixtures/EquipmentEffectsProbe/session_fixture.gd','online_session_fixture.gd')]:
         archive.write(repo / source, prefix+destination)
 (output/'packages.json').write_text(json.dumps({p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in mods.glob('*.zip')}, indent=2), encoding='utf8')
 
-(output/"sources.json").write_text(json.dumps({str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in [repo/"scripts/menu_sync_manager.gd", repo/"scripts/upgrade_runtime_sync.gd", repo/"tests/Test-EquipmentEffectsLan.ps1", repo/"tests/test_equipment_effects_lan.py", repo/"tests/equipment_effects_lan.gd", repo/"tests/prepare_equipment_probe.py"]}, indent=2),encoding="utf8")
+(output/"sources.json").write_text(json.dumps({str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in [repo/"scripts/menu_sync_manager.gd", repo/"scripts/upgrade_runtime_sync.gd", repo/"tests/Test-EquipmentEffectsLan.ps1", repo/"tests/test_equipment_effects_lan.py", repo/"tests/equipment_effects_lan.gd", repo/"tests/prepare_equipment_probe.py", repo/"tests/effect_lifecycle_checks.gd", repo/"tests/test_effect_lifecycle_lan.py"]}, indent=2),encoding="utf8")

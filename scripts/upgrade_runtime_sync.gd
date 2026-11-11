@@ -52,6 +52,10 @@ func serialize_upgrade_effect_state(upgrade_data) -> Array:
 		}
 		if serialized_effect != null:
 			entry["serialized_effect"] = serialized_effect
+			# Native serialize() includes materialized text arguments, but omits the
+			# flag that prevents get_text() from appending them a second time.
+			if effect is Effect and serialized_effect.has("custom_args"):
+				entry["custom_args_added"] = effect._custom_args_added
 		result.append(entry)
 	return result
 
@@ -93,7 +97,13 @@ func apply_upgrade_effect_state(upgrade_data, effect_state) -> void:
 		# description renderer immediately calls WeaponService with a null WeaponStats.
 		var serialized_effect = entry.get("serialized_effect", null)
 		if typeof(serialized_effect) == TYPE_DICTIONARY and effect_copy.has_method("deserialize_and_merge"):
+			# This native subclass appends during deserialize. The template copy
+			# already has children; assign a new array before replacing its state.
+			if effect_copy is EffectWithSubEffects and serialized_effect.has("sub_effects"):
+				effect_copy.sub_effects = []
 			effect_copy.call("deserialize_and_merge", serialized_effect)
+			if effect_copy is Effect and serialized_effect.has("custom_args") and entry.has("custom_args_added"):
+				effect_copy._custom_args_added = bool(entry.custom_args_added)
 
 		# Keep the generic exported-property overlay as the final authority. It covers
 		# Effects that do not extend serialize(), and preserves compatibility with
