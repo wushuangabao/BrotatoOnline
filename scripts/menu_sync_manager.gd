@@ -6292,6 +6292,17 @@ func _apply_one_serialized_player_run_data(player_index: int, run_data_state, pr
 	if movement != null:
 		movement.accept_applied_snapshot(player_index, player_data, run_data_state)
 		movement.restore_rejoined_player(player_index, player_data, run_data_state, preserve_tracking)
+	# Replacing PlayerRunData does not invoke native inventory mutation hooks.
+	# Native item-count caches also outlive PlayerRunData replacement. Clear only
+	# this seat before linked stats query item counts or duplicate equipment.
+	RunData.items_nb_cache[player_index].clear()
+	RunData.different_items_nb_cache[player_index].clear()
+	RunData.duplicate_items_cache[player_index] = null
+	# LinkedStats is a separate per-player cache: recompute it from the final
+	# equipment/effects rather than retaining the previous structure/item bonuses.
+	LinkedStats.reset_player(player_index)
+	RunData._are_player_stats_dirty[player_index] = true
+	Utils.reset_stat_cache(player_index)
 	if preserve_local_health and preserved_current_health >= 0:
 		var max_health = int(RunData.get_player_max_health(player_index)) if RunData.has_method("get_player_max_health") else preserved_current_health
 		RunData.players_data[player_index].current_health = int(clamp(preserved_current_health, 1, max(1, max_health)))
@@ -12121,8 +12132,18 @@ func _build_shop_action_delta_state_unstamped(index: int, action: String, messag
 			state["meca_upgrade_preview"] = message.meca_upgrade_preview
 		return state
 	var state = _build_shop_action_delta_state_base(index, action, message, applied)
-	if action == "shop_discard_weapon" and applied and RunData.get_player_effect(Keys.burn_weapon_give_primitive_bonus_hash, index) != 0 and not state.get("run_data_full", false):
-		_append_incremental_shop_runtime_state_to_delta_state(state, index, action)
+	var inventory_delta = state.get("inventory_delta", {})
+	if applied and bool(inventory_delta.get("replace_weapons", false)):
+		# Replacing just the inventory leaves effects/sets from the old weapons in
+		# RunData. Mirror the owner's result rather than replaying native mutations
+		# (which can roll rewards or trigger permanent side effects a second time).
+		# Endless already carries runtime state with unchanged held items omitted.
+		if not bool(state.get("run_data_full", false)):
+			_append_forced_shop_run_data_repair_to_delta_state(state, index, action)
+		if not state.get("run_data", {}).empty():
+			# The deserialized weapons are already bound to their runtime effects.
+			# Do not replace them again with independently deserialized copies.
+			state.erase("inventory_delta")
 	return state
 
 
@@ -12228,6 +12249,19 @@ func _restore_inventory_effect_state(player, state: Dictionary) -> void:
 			var data = resources[i]
 			if typeof(entry) == TYPE_DICTIONARY and data != null and str(data.my_id) == str(entry.get("my_id", "")) and entry.has("bo_effect_state"):
 				sync.apply_item_effect_state(data, entry.bo_effect_state)
+	# Native deserialization binds resource-valued effects to weapon objects, but
+	# the overlay above creates private replacement effects. Rebind only those
+	# registries after the overlay, including item sources such as landmines.
+	# This preserves native reference-based unapply without replaying any effect.
+	var serialized_effects = {}
+	for key in state.get("effects", {}):
+		var key_hash = int(key) if str(key).is_valid_integer() else Keys.generate_hash(str(key))
+		if RunData.effect_keys_full_serialization.has(key_hash):
+			serialized_effects[str(key)] = state.effects[key]
+	var owned_effects = {}
+	player._cache_effect_hashes(player.weapons + player.items, owned_effects)
+	var rebound = player._deserialize_effects(serialized_effects, owned_effects)
+	player.effects.merge(rebound, true)
 
 func _on_client_shop_dismantled(node, index: int) -> void:
 	if _applying_remote_run_page_action:

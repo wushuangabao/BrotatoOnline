@@ -136,3 +136,12 @@ Controlled setup uses no enemies, shortened waves, seeded bonus-material account
 `Test-MovementRewardsLan.ps1 -Case hiker -WaitRejoin -OnlinePackage <candidate.zip>` runs two retail game processes over real localhost ENet. Also run `-Case cat`, `-Case tracking -HardRejoin`, and `-Case multi` sequentially. The runner requires FiveItemShop 1.1.3 and the Noobs review package with its old Online tracking adapter removed. It refuses to replace ZIPs while the target game is running, verifies candidate entries against current source, records package hashes and uses fresh isolated user data.
 
 The probe drives native movement, damage, death/retry and UI callbacks. Report/ACK loss, snapshot order and old-packet replay are controlled injections. Multi-seat input is synthetic; it does not test physical controllers. See `docs/movement-rewards-validation.md` for results and remaining limits.
+
+
+## Equipment effects (6.8.4)
+
+Run `Test-EquipmentEffectsLan.ps1 -OnlinePackage <zip> -Runner <isolated retail runner> -Character xiao_tian_cai -Wave 1`, and repeat with `streamer` and wave `21`. The runner must contain the retail game and matching Noobs review/FiveItemShop packages in its Workshop layout. It uses two real ENet peers with fresh user data and refuses to overwrite mounted ZIPs while its game process is running.
+
+The probe seeds the same purchase offer on both peers and emits native UI signals. It checks purchases, duplicate wrenches, combination, sales, landmine copies, effect ownership, item-count caches, linked armor/engineering, currency and two native wave transitions. Repeated full-state restoration is controlled injection at the production receiver. A nested flame-turret roundtrip covers non-template burning data and description arguments.
+
+`Test-MecaUpgradeRetail.ps1 -OnlinePackage <zip> -Runner <runner>` runs the existing mechanical-upgrade assertions in the same isolated retail setup. Only the test bootstrap and dynamic LAN port differ from the source-project runner; assertions are unchanged. See `docs/equipment-effects-validation.md` for retained failures, evidence and limits.

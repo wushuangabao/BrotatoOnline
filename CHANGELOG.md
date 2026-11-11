@@ -1,5 +1,14 @@
 # Brotato Online — 非官方修复版 / Unofficial Fixed Release
 
+## 6.8.4 — 2026-11-11 — 装备效果与关联属性同步
+
+- 武器替换类增量携带操作后的完整效果状态，避免只更新装备列表而保留旧结构、套装效果；已有完整状态不再被第二次独立反序列化的装备覆盖。
+- 完整玩家状态恢复后重新绑定装备与原生资源型效果，清理对应玩家的道具数量、不同道具和重复装备缓存，并重算 LinkedStats；不重复执行 apply/unapply，不重复发放收益。
+- 扩展原生序列化效果的嵌套深度预算，保留火焰炮塔的燃烧数据和描述参数，避免退回本地模板导致效果无法匹配。通用导出属性仍使用原来的浅层限制。
+- 网络协议 `6.5.2`；所有玩家须使用 6.8.4，不能与 6.8.3 或更早版本混用。存档格式不变。本次装备 300、机械化升级 48、收益重连 32、6.8.1 联机旧档创建/续玩 62 项，共 442 项断言通过；完整证据及验证边界见 `docs/equipment-effects-validation.md`。
+
+Weapon mutations now synchronize their resulting effects, and restored resource-valued effects are rebound to their owning inventory. Per-player item-count caches and linked statistics refresh after full-state replacement. Nested native effect state, including flame-turret burning data and description arguments, is preserved instead of falling back to local templates. Effects are not replayed, avoiding duplicate rewards. Network protocol 6.5.2 requires every peer to update to 6.8.4. The save format is unchanged. Fresh regressions passed 442 assertions (300 equipment, 48 mechanical upgrades, 32 rewards/rejoin and 62 original LAN-save create/resume checks); see the equipment-effect validation report for evidence and limits.
+
 ## 6.8.3 — 2026-11-10 — 客户端收益与统计同步
 
 - 原生步数效果只由对应玩家的本机执行；材料和属性以累计差额同步、确认和去重，避免主机旧快照撤销收益或重复增加属性。修复旧最大生命采样反向覆盖客户端实际生命上限的问题。

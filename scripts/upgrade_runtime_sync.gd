@@ -38,7 +38,9 @@ func serialize_upgrade_effect_state(upgrade_data) -> Array:
 		if effect.has_method("serialize"):
 			var raw_serialized = effect.call("serialize")
 			if typeof(raw_serialized) == TYPE_DICTIONARY:
-				var encoded_serialized = _encode_wire_value(raw_serialized, 0)
+				# Native nested effects (e.g. flame turret -> burning data -> scaling stats)
+				# exceed the shallow exported-property budget. Preserve their native state.
+				var encoded_serialized = _encode_wire_value(raw_serialized, 0, 16)
 				if bool(encoded_serialized.get("ok", false)):
 					serialized_effect = encoded_serialized.get("value", null)
 
@@ -247,8 +249,8 @@ func _should_skip_property_name(property_name: String) -> bool:
 		or property_name == "script"
 
 
-func _encode_wire_value(value, depth: int) -> Dictionary:
-	if depth > 4:
+func _encode_wire_value(value, depth: int, max_depth: int = 4) -> Dictionary:
+	if depth > max_depth:
 		return {"ok": false}
 	var value_type = typeof(value)
 	if value_type == TYPE_NIL or value_type == TYPE_BOOL or value_type == TYPE_INT or value_type == TYPE_REAL or value_type == TYPE_STRING:
@@ -256,7 +258,7 @@ func _encode_wire_value(value, depth: int) -> Dictionary:
 	if value_type == TYPE_ARRAY:
 		var array_value = []
 		for child in value:
-			var encoded_child = _encode_wire_value(child, depth + 1)
+			var encoded_child = _encode_wire_value(child, depth + 1, max_depth)
 			if not bool(encoded_child.get("ok", false)):
 				return {"ok": false}
 			array_value.append(encoded_child.get("value", null))
@@ -266,7 +268,7 @@ func _encode_wire_value(value, depth: int) -> Dictionary:
 		for child_key in value.keys():
 			if typeof(child_key) != TYPE_STRING:
 				return {"ok": false}
-			var encoded_value = _encode_wire_value(value[child_key], depth + 1)
+			var encoded_value = _encode_wire_value(value[child_key], depth + 1, max_depth)
 			if not bool(encoded_value.get("ok", false)):
 				return {"ok": false}
 			dict_value[str(child_key)] = encoded_value.get("value", null)

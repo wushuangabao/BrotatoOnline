@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-> **Independent fork 6.8.3 (2026-11-10)**. Original author: six666. Fork maintainer: wushuangabao.
+> **Independent fork 6.8.4 (2026-11-11)**. Original author: six666. Fork maintainer: wushuangabao.
 > Trusted multiplayer for friends: personal shops and mechanical upgrades apply locally, then synchronize results. Supports multiple local players per client, up to four players total, with retry and automatic battle entry fixes. See [CHANGELOG.md](CHANGELOG.md) for details and validation scope.
 > New Mod ID: `wushuangabao-BrotatoOnlineFriends`, intended for a separate Workshop item. Every player must use this version and disable the original or older fixed releases with ID `six666-BrotatoOnline`.
 > [Original project](https://github.com/xx666zz/BrotatoOnline) · [Fixed source](https://github.com/wushuangabao/BrotatoOnline) · [GPL-3.0 license](LICENSE)
@@ -20,13 +20,19 @@ The goal is not to replace Brotato's original co-op flow with a completely diffe
 
 ## Usage
 
+### Equipment effects and linked statistics (6.8.4)
+
+Fixes missing effect updates after weapon purchases, combinations and sales, lingering structure bonuses, and stale item-count or linked-stat caches. Restored inventory effects are rebound to their owning equipment. Nested burning data and description arguments, including flame turrets, are preserved in full. These are generic synchronization fixes with no character-specific networking code.
+
+Update every peer to **6.8.4** (network protocol **6.5.2**). The save format is unchanged. Validation covers purchases, combinations and sales by both peers, repeated state restoration and wave transitions; see [equipment-effect validation](docs/equipment-effects-validation.md). Physical devices and Steam across computers are outside this automated validation.
+
 ### Client rewards and statistics (6.8.3)
 
 Fixes lost or duplicated materials and attributes from native movement effects, and stale network samples overwriting the player's actual maximum health. Display-only statistics transfer at wave end, including custom numeric keys, arrays and resets, without adding together damage simulated on both peers.
 
 Leaving to the title screen and rejoining the same battle in the same game process preserves pending owner rewards. Saved-game resume and death/retry instead restore their checkpoints. The host pauses combat and shows a waiting notice until final client records arrive; rejoining and completing the handoff allows settlement to continue. Pending records are in memory; recovery after closing the game, a crash or power loss is not guaranteed.
 
-Update every peer to **6.8.3** (network protocol **6.5.1**); older peers are rejected. The save format is unchanged. All 16 input combinations and 944 assertions passed when resuming original 6.8.1 LAN saves. Another 91 reward/statistics assertions passed in two local retail game processes over real LAN, with FiveItemShop 1.1.3 and an adapter-free Noobs 1.1.0 review package. Physical controllers and Steam across computers still need testing. See [reward/statistics validation](docs/movement-rewards-validation.md).
+The following records validation at the 6.8.3 release. The save format was unchanged. All 16 input combinations and 944 assertions passed when resuming original 6.8.1 LAN saves. Another 91 reward/statistics assertions passed in two local retail game processes over real LAN, with FiveItemShop 1.1.3 and an adapter-free Noobs 1.1.0 review package. Physical controllers and Steam across computers still need testing. See [reward/statistics validation](docs/movement-rewards-validation.md).
 
 ### Selection input and saved-run fixes (6.8.2)
 
@@ -48,7 +54,7 @@ The host still coordinates the shared battle and scene changes. The start handsh
 
 The handoff includes full personal `PlayerRunData` (equipment and modifications, items and effects, health, level/XP, gold and chips), plus offers, locks and reroll counters. The host combines these with shared wave, difficulty, zone, DLC, elite and event configuration to rebuild the start snapshot. Previous-wave enemies, projectiles and temporary scene nodes are not carried as personal state.
 
-This release uses network protocol **`6.5.1`**. Update the host and every client to **6.8.3**; it cannot mix with 6.8.2 or earlier releases. Settings and online identity storage use the new ID and are not automatically migrated. Other mods that declare dependencies/load order or find the API using the old Mod ID need to adopt the new ID.
+This release uses network protocol **`6.5.2`**. Update the host and every client to **6.8.4**; it cannot mix with 6.8.3 or earlier releases. Settings and online identity storage use the new ID and are not automatically migrated. Other mods that declare dependencies/load order or find the API using the old Mod ID need to adopt the new ID.
 
 ### Multiple local players on a client
 
@@ -58,7 +64,7 @@ After joining a room, remain on character selection and hold the vanilla co-op j
 - Local players select characters, shop, move, take damage and die independently. Adding seats is limited to character selection, before the run starts.
 - The first player uses the configured online input device. Select keyboard/mouse there first if controllers should join as additional players.
 - Reconnection retains all seats belonging to that client. Connect enough devices before continuing a saved run. Kicking a client removes all of its seats.
-- Update the host and every client to 6.8.3 (network protocol `6.5.1`). It cannot mix with older releases or the original Mod.
+- Update the host and every client to 6.8.4 (network protocol `6.5.2`). It cannot mix with older releases or the original Mod.
 
 Automated verification uses two local Godot processes, real LAN transport and injected device input. Physical controllers and Steam sessions across computers still require testing. See [tests/README.md](tests/README.md) for commands and scope.
 
@@ -153,8 +159,8 @@ Current compatibility:
 | ------------------------------- | ---------- |
 | Brotato (locally tested)         | `1.2.0.1` |
 | ModLoader                       | `6.3.0`    |
-| Brotato Online release          | `6.8.3`    |
-| Brotato Online network protocol | `6.5.1` |
+| Brotato Online release          | `6.8.4`    |
+| Brotato Online network protocol | `6.5.2` |
 | Maximum players                 | `4`        |
 
 ## Network Architecture
