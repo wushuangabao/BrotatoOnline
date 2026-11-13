@@ -4,6 +4,21 @@ import sys
 import time
 from pathlib import Path
 
+def _replace_ipc(source, destination):
+    # Windows may deny rename while the game briefly holds the command file open.
+    # Retry only the same atomic IPC write, never an assertion or gameplay action.
+    import time
+    deadline = time.monotonic() + 3
+    while True:
+        try:
+            source.replace(destination)
+            return
+        except PermissionError as exc:
+            if getattr(exc, 'winerror', None) not in (5, 32, 33) or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.01)
+
+
 folder = Path(sys.argv[1])
 results = []
 last_states = {}
@@ -28,7 +43,7 @@ def cmd(role, action, **args):
     path = folder / f'{role}-command.json'
     tmp = path.with_suffix('.tmp')
     tmp.write_text(json.dumps(dict(id=ident, action=action, **args)),encoding='utf-8')
-    tmp.replace(path)
+    _replace_ipc(tmp, path)
     states = wait(lambda h,c: (h if role=='host' else c)['command'] >= ident)
     return states[0 if role=='host' else 1]['result']
 
@@ -102,5 +117,5 @@ finally:
     for role in ('host','client'):
         try:
             path=folder/f'{role}-command.json';temp=path.with_suffix('.tmp')
-            temp.write_text(json.dumps(dict(id=read(role)['command']+1,action='quit')),encoding='utf8');temp.replace(path)
+            temp.write_text(json.dumps(dict(id=read(role)['command']+1,action='quit')),encoding='utf8');_replace_ipc(temp, path)
         except (OSError,KeyError):pass

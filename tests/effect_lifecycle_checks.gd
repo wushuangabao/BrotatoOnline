@@ -13,8 +13,8 @@ func restore(runtime_sync, source, target):
 func run(manager):
     checks = []
     var protocol = load("res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/scripts/protocol.gd")
-    check(protocol.is_compatible("6.5.3", ProgressData.VERSION), "replacement protocol accepts current peers")
-    check(not protocol.is_compatible("6.5.2", ProgressData.VERSION), "replacement protocol rejects superseded 6.8.4 peers")
+    check(protocol.is_compatible("6.5.4", ProgressData.VERSION), "replacement protocol accepts current peers")
+    check(not protocol.is_compatible("6.5.3", ProgressData.VERSION), "replacement protocol rejects superseded 6.8.4 peers")
     var runtime_sync = manager._get_upgrade_runtime_sync()
     for rendered in [false, true]:
         var source = load(FLAME).duplicate()

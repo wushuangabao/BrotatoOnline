@@ -14,9 +14,10 @@ var upgrade_seeded = false
 var box_taken = false
 var upgrade_taken = false
 var starting_max_hp = 0
+var crate_native_calls = 0
 
 func _drive_rewards():
-	if mode != "rewards" or not is_instance_valid(current_main):
+	if not mode in ["rewards", "compat"] or not is_instance_valid(current_main):
 		return
 	var ui = current_main._coop_upgrades_ui
 	if not ui.visible:
@@ -86,10 +87,28 @@ func _process(_delta):
 	if not delayed and current_main._cleaning_up:
 		# Reward choices require the native EndWaveTimer to open their UI. Delay
 		# harvesting instead, so the host can legitimately finish those choices.
-		delayed_timer = current_main._harvesting_timer if mode in ["harvest", "rewards"] else current_main._end_wave_timer
+		delayed_timer = current_main._harvesting_timer if mode in ["harvest", "rewards", "compat"] else current_main._end_wave_timer
 		delayed_timer.paused = true
 		delayed = true
 		_write("delayed.json", {})
+
+func _host_mutation_state(index = 0):
+	var dlc = ItemService.get_dlc_data_by_id("primal_dread")
+	var result = {"pending": RunData.players_data[index].pending_mutations, "evolution": RunData.get_player_effect(Keys.stat_evolution_hash, index), "tumors": 0, "count_effects": 0, "mutation_count": 0, "lens": 0, "character": 0, "items": []}
+	for item in RunData.players_data[index].items:
+		if item.my_id == "item_lens": result.lens += 1
+		if item.my_id == "character_well_rounded": result.character += 1
+		var effects = []
+		for effect in item.effects:
+			effects.append(JSON.print(effect.serialize(), "", true))
+			if dlc.is_tumor(item) and effect.text_key == DLC2Data.TUMOR_MUTATION_COUNT_TEXT_KEY:
+				result.count_effects += 1
+				result.mutation_count += effect.value
+		effects.sort()
+		result.items.append(JSON.print({"id": item.my_id, "mutant": item.is_mutant, "effects": effects}, "", true))
+		if dlc.is_tumor(item): result.tumors += 1
+	result.items.sort()
+	return result
 
 func _state():
 	var p = RunData.players_data[1]
@@ -103,7 +122,7 @@ func _state():
 		# tumor created by some mutant effects, not the chosen character.
 		if item.is_mutant and item.my_id in ["item_lens", "character_well_rounded"]:
 			mutants += 1
-	return {"gold": p.gold, "xp": p.current_xp, "level": p.current_level, "armor": RunData.get_player_effect(Keys.stat_armor_hash, 1), "range": RunData.get_player_effect(Keys.stat_range_hash, 1), "max_hp": RunData.get_player_max_health(1), "harvest": RunData.get_player_effect(Keys.stat_harvesting_hash, 1), "items": ids, "mutants": mutants, "bonus": RunData.bonus_gold, "total_bonus": RunData.total_bonus_gold, "pending_mutations": p.pending_mutations}
+	return {"gold": p.gold, "xp": p.current_xp, "level": p.current_level, "armor": RunData.get_player_effect(Keys.stat_armor_hash, 1), "range": RunData.get_player_effect(Keys.stat_range_hash, 1), "max_hp": RunData.get_player_max_health(1), "harvest": RunData.get_player_effect(Keys.stat_harvesting_hash, 1), "items": ids, "mutants": mutants, "host_mutation": _host_mutation_state(), "crate_mutation": _host_mutation_state(1), "bonus": RunData.bonus_gold, "total_bonus": RunData.total_bonus_gold, "pending_mutations": p.pending_mutations}
 
 func _run():
 	ProgressData.apply_settings()
@@ -142,9 +161,12 @@ func _run():
 		RunData.add_item(load("res://items/all/00_base_game/lens/lens_data.tres"), 0)
 		RunData.add_stat(Keys.stat_evolution_hash, -10, 0)
 		RunData.players_data[0].pending_mutations = 1
-		if mode == "rewards":
+		if mode in ["rewards", "compat"]:
 			RunData.players_data[1].current_level = 1
 			RunData.players_data[1].current_xp = 24
+		if mode == "compat":
+			RunData.add_stat(Keys.stat_evolution_hash, -10, 1)
+			RunData.get_player_effects(1)[Keys.mutate_item_on_equip_chance_hash] = 25
 		RunData.add_stat(Keys.stat_harvesting_hash, 20 - RunData.get_player_effect(Keys.stat_harvesting_hash, 1), 1)
 		RunData.get_player_effects(1)[Keys.stats_end_of_wave_hash] = [[Keys.stat_armor_hash, 7]]
 		RunData.current_wave = 2
@@ -174,7 +196,7 @@ func _run():
 	starting_max_hp = RunData.get_player_max_health(1)
 	RunData.steps_taken_this_wave = [11, 37, 0, 0]
 	if role == "host":
-		if mode == "rewards":
+		if mode in ["rewards", "compat"]:
 			var reward = UpgradesUI.ConsumableToProcess.new()
 			reward.consumable_data = load("res://items/consumables/item_box/item_box_data.tres")
 			reward.player_index = 1
@@ -198,16 +220,21 @@ func _run():
 		_check(wave_callbacks == 1, "native end_of_the_wave callback once")
 		_check(int(ProgressData.data.steps_taken) - start_steps == 37, "native step accounting exactly once")
 		_check(RunData.get_player_gold(1) == (526 if mode == "endless" else 1020), "material conversion precedes exactly 20 harvesting materials")
-		_check(RunData.players_data[1].current_xp == (19 if mode == "rewards" else 20), "harvesting grants exactly 20 XP with correct level rollover")
+		_check(RunData.players_data[1].current_xp == (19 if mode in ["rewards", "compat"] else 20), "harvesting grants exactly 20 XP with correct level rollover")
 		_check(RunData.get_player_effect(Keys.stat_armor_hash, 1) == 7, "wave-end armor grants exactly seven")
 		_check(RunData.get_player_effect(Keys.stat_harvesting_hash, 1) == (16 if mode == "endless" else 21), "harvesting growth or endless decay occurs exactly once")
 		if mode == "endless":
 			_check(RunData.get_player_max_health(1) == starting_max_hp + 38, "native demon conversion adds exactly 38 maximum HP")
 		_check(_state().items.has(load("res://items/all/04_primal_dread/dino_egg/dino_egg.tres").replaced_by.my_id), "dinosaur egg advances exactly one stage")
-		_check(_state().mutants == 1, "one pending mutation produces exactly one mutated item")
-		if mode == "rewards":
+		var mutation = _state().host_mutation
+		_check(mutation.pending == 0 and mutation.tumors == 1 and mutation.count_effects == 1 and mutation.mutation_count == 1 and mutation.evolution == -11 and mutation.lens == 1 and mutation.character == 1, "one pending mutation creates exactly one tumor mutation, consumes one evolution and preserves target inventory")
+		if mode in ["rewards", "compat"]:
 			_check(RunData.players_data[1].current_level == 2 and RunData.get_player_effect(Keys.stat_range_hash, 1) == 15, "one earned upgrade applies exactly once")
-			_check(_state().items.count("item_cake") == 1, "one item box grants exactly one chosen item")
+			_check(_state().items.count("item_cake") + _state().items.count("item_cake:mutant") == 1, "one item box grants exactly one chosen item")
+		if mode == "compat":
+			var crate = _host_mutation_state(1)
+			_check(crate.tumors == 1 and crate.mutation_count == 1 and crate.evolution == -11, "crate equip mutation creates one authoritative tumor and evolution loss")
+			_check(crate_native_calls == 1, "host executes native crate reward exactly once")
 		yield(_wait_file("client-result.json"), "completed")
 	else:
 		yield(_wait_file("host-shop.json"), "completed")
@@ -233,6 +260,8 @@ func _run():
 			menu.receive_menu_scene_state_from_host(state)
 		yield(get_tree().create_timer(0.5), "timeout")
 		_check(before == JSON.print(_state()) and int(ProgressData.data.steps_taken) - start_steps == 37 and wave_callbacks == 1, "duplicate shop messages cannot repeat settlement")
+		if mode == "compat":
+			_check(crate_native_calls == 0, "client never replays native crate RNG after real LAN delivery")
 		_write("client-result.json", _state())
 	print("WAVE_SETTLEMENT_RESULT: ", role, " ", "PASS" if failures == 0 else "FAIL")
 	get_tree().quit(0 if failures == 0 else 1)

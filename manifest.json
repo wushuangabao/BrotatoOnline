@@ -1,7 +1,7 @@
 {
   "name": "BrotatoOnlineFriends",
   "namespace": "wushuangabao",
-  "version_number": "6.8.4",
+  "version_number": "6.8.5",
   "description": "Brotato Online Friends：朋友间信任联机，个人商店与机械升级本地立即生效，支持客户端本地多人、全房间最多四人。",
   "website_url": "https://github.com/wushuangabao/BrotatoOnline",
   "dependencies": [],
@@ -14,7 +14,7 @@
       "tags": [
         "Utilities"
       ],
-      "description_rich": "Brotato Online Friends 6.8.4（2026-11-11），基于 six666 的 Brotato Online，由 wushuangabao 独立维护。支持 Steam/LAN 联机、客户端本地多人和个人商店，全房间最多四人。修复武器出售、购买和合成后的效果同步，恢复装备与效果的对象关联，刷新道具数量和关联属性缓存，并完整传递火焰炮塔等嵌套效果。另修复描述参数增长与原生子效果重复追加。适用于原版与使用原生效果的 Mod 角色，无角色专用网络适配。保留 6.8.3 收益与统计、6.8.2 输入与续档修复，存档格式不变。网络协议 6.5.3，主机和所有客户端须使用最终的 6.8.4，不能与 6.8.3 或更早版本混用；停用 six666-BrotatoOnline。验证范围与实体手柄、Steam 跨机器等剩余限制见 CHANGELOG.md 和 docs/effect-lifecycle-validation.md。",
+      "description_rich": "Brotato Online Friends 6.8.5（2026-11-13），基于 six666 的 Brotato Online，由 wushuangabao 独立维护。适配游戏 1.2.0.2：宝箱同步房主最终突变结果，远端满血拾取收益遵守本波剩余额度。支持 Steam/LAN 联机、客户端本地多人和个人商店，全房间最多四人。修复武器出售、购买和合成后的效果同步，恢复装备与效果的对象关联，刷新道具数量和关联属性缓存，并完整传递火焰炮塔等嵌套效果。另修复描述参数增长与原生子效果重复追加。适用于原版与使用原生效果的 Mod 角色，无角色专用网络适配。保留 6.8.3 收益与统计、6.8.2 输入与续档修复，存档格式不变。网络协议 6.5.4，主机和所有客户端须使用6.8.5，不能与 6.8.4 或更早版本混用；停用 six666-BrotatoOnline。验证范围与实体手柄、Steam 跨机器等剩余限制见 CHANGELOG.md 和 docs/effect-lifecycle-validation.md。",
       "optional_dependencies": [],
       "load_before": [],
       "incompatibilities": [

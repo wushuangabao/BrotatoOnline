@@ -4,7 +4,8 @@ This Mod is an unofficial, independently maintained fork of Brotato Online by si
 
 Designed for cooperative play between trusted friends, rather than anti-cheat enforcement. More responsive client actions and more reliable synchronization.
 
-[b]Current version:[/b] 6.8.4
+[b]Current version:[/b] 6.8.5
+[b]Game version targeted by this update:[/b] 1.2.0.2
 [b]Original author:[/b] six666
 [b]Fork maintainer:[/b] wushuangabao
 [b]Mod ID:[/b] wushuangabao-BrotatoOnlineFriends
@@ -30,6 +31,12 @@ Fixes lost in-run rewards for characters such as Hiker. Display-only character s
 [*][b]Equipment effects and linked statistics[/b]
 Synchronizes effects after weapon purchases, combinations and recycling, preventing lingering structure bonuses. Preserves nested effect data such as flame turrets for vanilla characters and Mods using native effects.
 
+[*][b]Consistent crate rewards and mutations[/b]
+The host applies crate rewards and synchronizes the resulting items, mutations, tumor and evolution. Clients do not reroll mutations, and weapon combinations from crates synchronize correctly when all weapon slots are occupied.
+
+[*][b]Full-health pickups respect the wave limit[/b]
+Remote full-health pickups grant only the remaining allowance for the wave. Attributes, item tracking and wave counters use the same actual gain, preventing excess rewards.
+
 [*][b]Complete local wave settlement[/b]
 When the host reaches the shop first, clients finish local settlement before synchronizing the scene transition, preserving local callbacks and progress records.
 [/list]
@@ -37,7 +44,7 @@ When the host reaches the shop first, clients finish local settlement before syn
 [h2]How to Use[/h2]
 
 [list]
-[*]Disable other multiplayer Mods. The host and every client should subscribe to the same 6.8.4 version. Fully exit and restart the game after updating.
+[*]Disable other multiplayer Mods. The host and every client should subscribe to the same 6.8.5 version. Fully exit and restart the game after updating.
 [*]Join the same room through a Steam lobby or LAN.
 [*]To add local players on a client, hold the join button on each additional device while on the character selection screen.
 [*]Additional players can join only before the run starts. The room supports four players total.
@@ -47,7 +54,9 @@ When the host reaches the shop first, clients finish local settlement before syn
 [h2]Compatibility and Notes[/h2]
 
 [list]
-[*]This version uses network protocol 6.5.3. Use the final 6.8.4 on every peer; 6.8.3 and earlier versions cannot join.
+[*]This update targets game version 1.2.0.2. The host and clients must use the same game version. Older game versions were not tested in this validation.
+[*]This version uses network protocol 6.5.4. Crate rewards now synchronize the host's final result, so every player must update to 6.8.5. It cannot connect with 6.8.4 or earlier releases.
+[*]The protocol update does not change the save format or invalidate existing saves simply because the protocol version changed.
 [*]6.8.1 network co-op saves can be continued; keep the save and identity files. Data from the original six666-BrotatoOnline ID is not migrated automatically.
 [*]Not all character, item and third-party Mod combinations have been verified.
 [/list]
@@ -79,10 +88,13 @@ Fixed skipped client settlement when the host entered the shop first, and added 
 Fixes hidden character lists, extra join panels, local input affecting remote seats, and restored client seats ignoring a second controller in favor of the keyboard. Undiagnosed physical hotplug swaps have not been changed.
 
 [*][b]6.8.3 | Client Rewards and Generic Statistics[/b]
-Fixes lost or duplicated movement rewards, stale data overwriting actual maximum health, and missing custom statistics or array values. Adds same-attempt rejoin recovery, retry rollback and final-record waiting. Reward/statistics regressions passed 91 assertions; the saved-run input matrix passed 944 assertions.
+Fixes lost or duplicated movement rewards, stale data overwriting actual maximum health, and missing custom statistics or array values. Adds same-attempt rejoin recovery, retry rollback and final-record waiting.
 
 [*][b]6.8.4 | Equipment Effects and Linked Statistics[/b]
-Fixes detached equipment-effect references, stale item counts and linked statistics, and missing nested flame-turret data. Also fixes growing description arguments and duplicated native subeffects, including Seashell, Javelin and Builder effects. Tests cover purchases, combinations, sales, repeated synchronization and wave transitions on both peers, using Xiao Tian Cai and vanilla Streamer in normal and endless modes. See the source repository validation report for scope and limits.
+Fixes detached equipment-effect references, stale item counts and linked statistics, and missing nested flame-turret data. Also fixes growing description arguments and duplicated native subeffects, including Seashell, Javelin and Builder effects.
+
+[*][b]6.8.5 | Game 1.2.0.2 Compatibility[/b]
+Fixes clients rerolling crate mutations and remote full-health pickups exceeding the wave limit. Protects inventory synchronization against duplicate or outdated crate messages and during endless-mode shop transitions. Network protocol increases to 6.5.4, requiring every player to update; the save format is unchanged.
 [/list]
 
 [h2]Credits and Source[/h2]

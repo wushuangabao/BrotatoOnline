@@ -20,7 +20,7 @@ $modList = @{}
 foreach ($manifestFile in Get-ChildItem -LiteralPath (Join-Path $project 'mods-unpacked') -Filter manifest.json -Recurse -File) {
     $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw | ConvertFrom-Json
     $modId = "$($manifest.namespace)-$($manifest.name)"
-    $modList[$modId] = @{ is_active = ($modId -eq 'wushuangabao-BrotatoOnlineFriends'); zip_path = '' }
+    $modList[$modId] = @{ is_active = ($modId -in @('wushuangabao-BrotatoOnlineFriends','Local-InputProbe')); zip_path = '' }
 }
 $previous = @{}
 foreach ($key in @('APPDATA', 'BROTATO_TEST_ROLE', 'BROTATO_TEST_DIR', 'BROTATO_TEST_CLIENT_PLAYERS', 'BROTATO_TEST_HOST_PLAYERS')) { $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process') }
@@ -52,6 +52,8 @@ try {
     foreach ($role in @('host', 'client')) {
         $process = $processes[$role]
         if (-not $process.HasExited) { throw "LAN test timed out: $output" }
+        $process.WaitForExit()
+        $process.Refresh()
         $lines = Get-Content "$output\$role.stdout.log" | Select-String 'CLIENT_COOP_LAN_'
         $lines
         if ($process.ExitCode -ne 0 -or -not ($lines -match "CLIENT_COOP_LAN_RESULT: $role PASS") -or (Select-String "$output\$role.stderr.log" -Pattern 'SCRIPT ERROR:|CLIENT_COOP_LAN_FAIL:' -Quiet)) { throw "LAN regression failed: $output" }

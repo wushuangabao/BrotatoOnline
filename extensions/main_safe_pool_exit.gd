@@ -1307,14 +1307,16 @@ func _bo_apply_remote_reward(kind: String, idx: int, full_hp: bool) -> void:
 		var effects = RunData.get_player_effect(Keys.consumable_stats_while_max_hash, idx)
 		for i in effects.size():
 			var e = effects[i]
+			var value_gained = int(e[1])
 			if e.size() > 2:
 				var caps = RunData.max_consumable_stats_gained_this_wave[idx]
 				if i >= caps.size() or caps[i][2] >= e[2]:
 					continue
-				caps[i][2] += e[1]
-			RunData.add_stat(e[0], e[1], idx)
+				value_gained = int(min(value_gained, e[2] - caps[i][2]))
+				caps[i][2] += value_gained
+			RunData.add_stat(e[0], value_gained, idx)
 			if e[0] == Keys.stat_max_hp_hash:
-				RunData.add_tracked_value(idx, Keys.item_extra_stomach_hash, e[1])
+				RunData.add_tracked_value(idx, Keys.item_extra_stomach_hash, value_gained)
 	RunData.apply_item_effects(data, idx)
 
 func _bo_owns_pickup_slot(idx: int) -> bool:

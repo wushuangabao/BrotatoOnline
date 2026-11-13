@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)][string]$ProjectPath,
-    [ValidateSet('end','harvest','wave','rewards','endless','cleanup')][string]$Mode = 'end',
+    [ValidateSet('end','harvest','wave','rewards','endless','cleanup','compat')][string]$Mode = 'end',
     [string]$Godot = 'D:\GodotSteam\godotsteam.36.editor.windows.64.exe'
 )
 $ErrorActionPreference = 'Stop'
@@ -19,7 +19,7 @@ $modList = @{}
 foreach ($manifestFile in Get-ChildItem -LiteralPath (Join-Path $project 'mods-unpacked') -Filter manifest.json -Recurse -File) {
     $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw | ConvertFrom-Json
     $modId = "$($manifest.namespace)-$($manifest.name)"
-    $modList[$modId] = @{ is_active = ($modId -eq 'wushuangabao-BrotatoOnlineFriends'); zip_path = '' }
+    $modList[$modId] = @{ is_active = ($modId -in @('wushuangabao-BrotatoOnlineFriends','Local-InputProbe')); zip_path = '' }
 }
 $previous = @{}
 foreach ($key in @('APPDATA', 'BROTATO_TEST_ROLE', 'BROTATO_TEST_DIR', 'BROTATO_SETTLEMENT_MODE')) { $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process') }
@@ -50,6 +50,8 @@ try {
     foreach ($role in @('host', 'client')) {
         $process = $processes[$role]
         if (-not $process.HasExited) { throw "LAN test timed out: $output" }
+        $process.WaitForExit()
+        $process.Refresh()
         $lines = Get-Content "$output\$role.stdout.log" | Select-String 'WAVE_SETTLEMENT_'
         $lines
         if ($process.ExitCode -ne 0 -or -not ($lines -match "WAVE_SETTLEMENT_RESULT: $role PASS") -or (Select-String "$output\$role.stderr.log" -Pattern 'SCRIPT ERROR:|WAVE_SETTLEMENT_FAIL:' -Quiet)) { throw "LAN regression failed: $output" }

@@ -138,6 +138,22 @@ Controlled setup uses no enemies, shortened waves, seeded bonus-material account
 The probe drives native movement, damage, death/retry and UI callbacks. Report/ACK loss, snapshot order and old-packet replay are controlled injections. Multi-seat input is synthetic; it does not test physical controllers. See `docs/movement-rewards-validation.md` for results and remaining limits.
 
 
+## Game 1.2.0.2 compatibility (6.8.5)
+
+Use the matching game engine explicitly with `-Godot`, and deploy the independent
+repository to `RecoveredProject-1.2.0.2/mods-unpacked/wushuangabao-BrotatoOnlineFriends`.
+Run `Test-Game1202Compat.ps1 -ProjectPath <project> -Godot <matching engine>` for
+native-versus-remote pickup allowance and authoritative crate regression checks.
+The crate fixture emits the real native signal and JSON-roundtrips its result;
+different endpoint seeds must not change the client's final inventory or effects.
+
+For single-account source LAN tests, copy `tests/fixtures/Local-InputProbe` to the
+isolated project's `mods-unpacked/Local-InputProbe`. The LAN runners enable this
+existing fixture to disable Steam room creation while retaining real ENet traffic.
+Run `Test-WaveSettlementLan.ps1 -Mode compat -ProjectPath <project> -Godot <engine>`
+to exercise native crate selection and mutation over two real LAN processes.
+Do not run LAN suites concurrently. See `docs/game-1202-compatibility-validation.md`.
+
 ## Equipment effects (6.8.4)
 
 Run `Test-EquipmentEffectsLan.ps1 -OnlinePackage <zip> -Runner <isolated retail runner> -Character xiao_tian_cai -Wave 1`, and repeat with `streamer` and wave `21`. The runner must contain the retail game and matching Noobs review/FiveItemShop packages in its Workshop layout. It uses two real ENet peers with fresh user data and refuses to overwrite mounted ZIPs while its game process is running.

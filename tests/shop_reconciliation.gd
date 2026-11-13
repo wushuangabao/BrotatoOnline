@@ -97,7 +97,7 @@ func _run():
 			host._append_forced_shop_run_data_repair_to_delta_state(committed, 1, "receipt_mismatch")
 			committed["shop_purchase_receipt"] = receipt
 			committed = parse_json(JSON.print(committed))
-			var ack = {"action_type": "shop_buy", "player_index": 1, "shop_buy_result": "success", "shop_purchase_receipt": receipt}
+			var ack = {"action_id": item_path + ":receipt", "action_type": "shop_buy", "player_index": 1, "shop_buy_result": "success", "shop_purchase_receipt": receipt}
 			client.receive_run_page_action_sync("host", ack, "client")
 			_check(client.consume_local_run_page_action_messages().empty(), "matching purchase receipt needs no full repair")
 			client._apply_all_shop_states_to_ui([rejected_buy])
@@ -105,12 +105,12 @@ func _run():
 			_check(repairs.size() == 1 and repairs[0].action_type == "shop_purchase_repair", "late older state after success requests repair")
 			client._apply_all_shop_states_to_ui([rejected_buy])
 			_check(client.consume_local_run_page_action_messages().empty(), "only one repair is in flight")
-			client.receive_run_page_action_sync("host", {"action_type": "shop_purchase_repair", "player_index": 1, "host_state_after": committed}, "client")
+			client.receive_run_page_action_sync("host", {"action_id": item_path + ":repair", "action_type": "shop_purchase_repair", "player_index": 1, "host_state_after": committed}, "client")
 			_check(JSON.print(host._build_shop_purchase_receipt(1), "", true) == JSON.print(receipt, "", true) and not card.active, "repair restores confirmed purchase without buying twice")
 			_check(client.consume_local_run_page_action_messages().empty(), "repair does not recursively request itself")
 			client._apply_all_shop_states_to_ui([rejected_buy])
 			_check(JSON.print(host._build_shop_purchase_receipt(1), "", true) == JSON.print(receipt, "", true) and client.consume_local_run_page_action_messages().empty(), "older correction cannot roll back completed repair")
-			client.receive_run_page_action_sync("host", {"action_type": "shop_reroll", "player_index": 1, "host_state_after": rejected_buy}, "client")
+			client.receive_run_page_action_sync("host", {"action_id": item_path + ":reroll", "action_type": "shop_reroll", "player_index": 1, "host_state_after": rejected_buy}, "client")
 			_check(JSON.print(host._build_shop_purchase_receipt(1), "", true) == JSON.print(receipt, "", true), "stale reroll does not replay native gold and slot mutations")
 			var older_receipt = receipt.duplicate(true)
 			older_receipt["shop_state_revision"] = rejected_buy.shop_state_revision

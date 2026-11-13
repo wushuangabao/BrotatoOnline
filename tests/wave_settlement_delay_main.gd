@@ -23,3 +23,10 @@ func _on_HarvestingTimer_timeout() -> void:
 func _verify_after_native_callback():
 	if OS.get_environment("BROTATO_TEST_ROLE") == "client" and get_tree() != null:
 		get_tree().root.get_node("WaveSettlementLanRegression")._verify_native_duplicates()
+
+# Different endpoint seeds reproduce the 1.2.0.2 divergence if native equip is replayed.
+func on_item_box_take_button_pressed(item_data: ItemParentData, consumable: UpgradesUI.ConsumableToProcess) -> void:
+	if OS.get_environment("BROTATO_SETTLEMENT_MODE") == "compat":
+		get_tree().root.get_node("WaveSettlementLanRegression").crate_native_calls += 1
+		seed(0 if OS.get_environment("BROTATO_TEST_ROLE") == "host" else 1)
+	.on_item_box_take_button_pressed(item_data, consumable)

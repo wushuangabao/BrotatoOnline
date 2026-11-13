@@ -6715,9 +6715,9 @@ func _ensure_host_item_box_take_sync_connection(ui: Node) -> void:
 
 
 func _on_host_item_box_take_for_inventory_sync(item_data, consumable) -> void:
-	# The Host already runs vanilla RunData.add_item through Main's existing signal
-	# connection. Broadcast only this single inventory addition so Clients can keep
-	# their held-items list correct even when endless shops use incremental-only sync.
+	# Main's earlier signal connection has already applied the reward, including
+	# 1.2.0.2 equip mutations or a full-inventory weapon combine. The original
+	# signal argument is not necessarily the item now held by the player.
 	if not _is_game_host() or not _is_online_session_active() or item_data == null:
 		return
 	var player_index = int(_safe_get(consumable, "player_index", -1))
@@ -6726,11 +6726,29 @@ func _on_host_item_box_take_for_inventory_sync(item_data, consumable) -> void:
 	var item_state = _serialize_item_parent_data(item_data)
 	if item_state.empty():
 		return
+	var run_data_after = _serialize_player_run_data_for_shop_sync(player_index, SHOP_HELD_ITEMS_SYNC_COMPACT).duplicate(true)
+	if run_data_after.empty():
+		return
+	var mutated_indices = []
+	var player = RunData.players_data[player_index]
+	for item in player.recently_mutated:
+		var index = player.items.find(item)
+		if index >= 0:
+			mutated_indices.append(index)
+	# A newer shop transition may overtake this chunked reward. Even in late
+	# endless mode it must carry the complete post-crate inventory baseline.
+	player.set_meta("bo_wave_inventory_changed", RunData.current_wave)
+	_mark_host_shop_run_data_dirty(player_index)
 	_queue_local_run_page_action({
 		"msg_type": "run_page_action_sync",
 		"action_type": "item_box_item_added",
 		"screen": "progression_item_box",
 		"player_index": player_index,
+		"current_wave": RunData.current_wave,
+		"shop_state_revision": _take_shop_state_revision(),
+		"run_data_after": run_data_after,
+		"recently_mutated_indices": mutated_indices,
+		"consumable_stat_caps": RunData.max_consumable_stats_gained_this_wave[player_index].duplicate(true),
 		"item": item_state,
 		"item_id_hash": int(item_state.get("my_id_hash", 0)),
 		"consumable": _serialize_item_parent_data(consumable.consumable_data)
@@ -6738,26 +6756,37 @@ func _on_host_item_box_take_for_inventory_sync(item_data, consumable) -> void:
 
 
 func _apply_item_box_item_added(player_index: int, message: Dictionary) -> bool:
-	# Client-side background inventory mutation only. Do not replay TakeButton/UI
-	# progression: the existing authoritative progression state remains responsible
-	# for which crate/reward is shown next.
+	# Apply the authoritative result without replaying native equip RNG/effects or
+	# advancing reward UI. Use the shop revision stream so a delayed crate cannot
+	# roll back a newer reward/shop snapshot (large inventories can be chunked).
 	if _is_game_host() or RunData == null:
 		return false
 	if player_index < 0 or player_index >= RunData.players_data.size():
 		return false
-	var item_state = message.get("item", {})
-	if typeof(item_state) != TYPE_DICTIONARY or item_state.empty():
+	if int(message.get("current_wave", -1)) != RunData.current_wave:
 		return false
-	var item_data = _resolve_item_parent_data(item_state)
-	if item_data == null:
+	var revision = int(message.get("shop_state_revision", 0))
+	if revision <= int(_last_host_shop_state_revision_by_player.get(player_index, 0)):
 		return false
-	var main = get_tree().current_scene
-	if not is_instance_valid(main) or not main.has_method("on_item_box_take_button_pressed"):
+	if _get_trusted_shop_sync().owns(player_index) and _trusted_shop_sync.has_edits(player_index):
 		return false
-	var reward = UpgradesUI.ConsumableToProcess.new()
-	reward.player_index = player_index
-	reward.consumable_data = _resolve_item_parent_data(message.get("consumable", {}), false)
-	main.on_item_box_take_button_pressed(item_data, reward)
+	var run_data_after = message.get("run_data_after", {})
+	if typeof(run_data_after) != TYPE_DICTIONARY or run_data_after.empty():
+		return false
+	if not _apply_one_serialized_player_run_data(player_index, run_data_after):
+		return false
+	var player = RunData.players_data[player_index]
+	for raw_index in message.get("recently_mutated_indices", []):
+		var index = int(raw_index)
+		if index >= 0 and index < player.items.size():
+			player.recently_mutated.append(player.items[index])
+	var caps = message.get("consumable_stat_caps", []).duplicate(true)
+	# JSON decodes numbers as floats; native stat hashes and gain counters are ints.
+	for cap in caps:
+		for i in cap.size():
+			cap[i] = int(cap[i])
+	RunData.max_consumable_stats_gained_this_wave[player_index] = caps
+	_last_host_shop_state_revision_by_player[player_index] = revision
 	return true
 
 

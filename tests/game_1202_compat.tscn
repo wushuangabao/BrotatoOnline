@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://mods-unpacked/wushuangabao-BrotatoOnlineFriends/tests/game_1202_compat.gd" type="Script" id=1]
+
+[node name="Game1202Compat" type="Node"]
+script = ExtResource( 1 )
