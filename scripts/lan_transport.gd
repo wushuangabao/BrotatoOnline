@@ -260,7 +260,9 @@ func _on_network_peer_disconnected(peer_id: int) -> void:
 		_diag_log("peer_disconnected", "peer=" + str(peer_id) + " " + _diag_timing_snapshot())
 		emit_signal("peer_disconnected", self, peer_id)
 		return
-	_begin_client_reconnect("peer_disconnected:" + str(peer_id))
+	# ENet also announces other clients leaving a relay-enabled room.
+	if peer_id == 1:
+		_begin_client_reconnect("peer_disconnected:" + str(peer_id))
 
 
 func _on_connected_to_server() -> void:

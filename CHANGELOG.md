@@ -1,5 +1,11 @@
 # Brotato Online — 非官方修复版 / Unofficial Fixed Release
 
+## 6.8.6 — 2026-11-19 — 局域网断线与房间延迟
+
+局域网房间里，一名客户端离开后，其他玩家可以继续游戏。房间列表按实际探测往返时间显示延迟，旧版房主的延迟显示为「--」。
+
+When one client leaves a LAN room, the other players stay connected. The room list measures latency from the probe the host answered and shows “--” for older hosts.
+
 ## 6.8.5 — 2026-11-13 — 游戏 1.2.0.2 兼容修复
 
 - 宝箱领取发送房主执行后的完整结果，包含突变/瘤效果、进化值、武器合成和本波拾取上限状态；客户端恢复库存效果关联与缓存，不再次调用原生领取或消耗随机数。

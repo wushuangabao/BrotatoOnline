@@ -1233,15 +1233,12 @@ func _on_lan_lobby_found(entry: Dictionary) -> void:
 	var entry_key = str(normalized.get("entry_key", ""))
 	var previous = _find_entry(entry_key) if entry_key != "" else {}
 	var row_changed = previous.empty() or _lobby_row_data_changed(previous, normalized)
-	# LAN discovery sends several probes during one search. Its reported ping is
-	# measured from search start, so later duplicate replies naturally contain a
-	# larger number. Keep the best reply and update only the ping Label instead of
-	# rebuilding the entire row for every duplicate response.
+	# Keep the best measured round trip. Older hosts do not echo a probe ID.
 	if not previous.empty():
 		var previous_ping = int(previous.get("ping_ms", -1))
 		var incoming_ping = int(normalized.get("ping_ms", -1))
-		if previous_ping >= 0 and incoming_ping >= 0:
-			normalized["ping_ms"] = min(previous_ping, incoming_ping)
+		if previous_ping >= 0 and (incoming_ping < 0 or previous_ping < incoming_ping):
+			normalized["ping_ms"] = previous_ping
 	_upsert_lobby_entry(normalized)
 	if row_changed:
 		_rebuild_lobby_rows()

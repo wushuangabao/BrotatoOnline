@@ -16,6 +16,8 @@ var _search_socket: PacketPeerUDP = null
 var _searching = false
 var _search_started_msec = 0
 var _last_search_send_msec = 0
+var _probe_sequence = 0
+var _probe_sent_at = {}
 var _session_manager = null
 
 
@@ -63,6 +65,7 @@ func start_search() -> int:
 
 func stop_search() -> void:
 	_searching = false
+	_probe_sent_at.clear()
 	if _search_socket != null:
 		_search_socket.close()
 	_search_socket = null
@@ -83,8 +86,11 @@ func _send_search() -> void:
 	if _search_socket == null:
 		return
 	_last_search_send_msec = OS.get_ticks_msec()
+	_probe_sequence += 1
+	var probe_id = str(_probe_sequence)
+	_probe_sent_at[probe_id] = _last_search_send_msec
 	_search_socket.set_dest_address("255.255.255.255", DISCOVERY_PORT)
-	_search_socket.put_packet(to_json({"protocol": PROTOCOL, "protocol_version": PROTOCOL_VERSION, "action": "discover"}).to_utf8())
+	_search_socket.put_packet(to_json({"protocol": PROTOCOL, "protocol_version": PROTOCOL_VERSION, "action": "discover", "probe_id": probe_id}).to_utf8())
 
 
 func _poll_host_requests() -> void:
@@ -104,6 +110,8 @@ func _poll_host_requests() -> void:
 			continue
 		response["protocol"] = PROTOCOL
 		response["protocol_version"] = PROTOCOL_VERSION
+		if request.has("probe_id"):
+			response["probe_id"] = request["probe_id"]
 		_host_socket.set_dest_address(address, port)
 		_host_socket.put_packet(to_json(response).to_utf8())
 
@@ -119,11 +127,14 @@ func _poll_search_replies() -> void:
 			continue
 		if int(response.get("protocol_version", 0)) != PROTOCOL_VERSION:
 			continue
+		var probe_id = response.get("probe_id", "")
+		if response.has("probe_id") and not _probe_sent_at.has(probe_id):
+			continue
 		var game_port = int(response.get("game_port", DEFAULT_GAME_PORT))
 		var entry = response.duplicate(true)
 		entry["source"] = "lan"
 		entry["entry_id"] = address + ":" + str(game_port)
 		entry["entry_key"] = "lan:" + address + ":" + str(game_port)
 		entry["endpoint"] = {"address": address, "port": game_port}
-		entry["ping_ms"] = max(0, OS.get_ticks_msec() - _search_started_msec)
+		entry["ping_ms"] = OS.get_ticks_msec() - int(_probe_sent_at[probe_id]) if _probe_sent_at.has(probe_id) else -1
 		emit_signal("lobby_found", entry)
