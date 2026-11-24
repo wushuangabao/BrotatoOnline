@@ -129,6 +129,8 @@ func snapshot(index: int) -> Dictionary:
 	state["force_run_data_repair"] = true
 	state["shop_owner_epoch"] = epoch
 	state["shop_owner_revision"] = int(revisions.get(index, 0))
+	if "burned_weapon" in RunData and RunData.get("burned_weapon"):
+		state["burned_weapon"] = true
 	state.erase("shop_state_revision")
 	return state
 
@@ -187,6 +189,10 @@ func accept(index: int, state: Dictionary) -> bool:
 	manager._applying_remote_run_page_action = was_applying
 	if not applied:
 		return false
+	# One seat burning a weapon exempts the entire room for this wave.
+	# Another owner's snapshot cannot clear it. Native wave end resets it.
+	if bool(state.get("burned_weapon", false)) and "burned_weapon" in RunData:
+		RunData.set("burned_weapon", true)
 	# The native slot lock list is needed when the host constructs the next shop.
 	manager._replace_client_locked_shop_items_from_host_entries(index, copy.shop_items, true)
 	revisions[index] = revision

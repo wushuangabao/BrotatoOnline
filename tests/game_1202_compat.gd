@@ -155,6 +155,16 @@ func _run():
 	RunData.current_wave += 1
 	check(not client._apply_item_box_item_added(1, first) and _state(1) == before, "previous-wave reward is rejected")
 	check(not client._apply_item_box_item_added(-1, first), "invalid player rejected")
+	# The 1.2.0.4 shop explicitly triggers equipped-item stat bonuses on purchase.
+	if RunData.has_method("add_item_triggering_stat_gain_effects"):
+		for i in 2:
+			RunData.get_player_effects(i)[Keys.gain_stat_for_equipped_item_with_stat_hash] = [[Keys.stat_luck_hash, 3, Keys.stat_max_hp_hash]]
+		var host_luck = RunData.get_player_effect(Keys.stat_luck_hash, 0)
+		var client_luck = RunData.get_player_effect(Keys.stat_luck_hash, 1)
+		RunData.call("add_item_triggering_stat_gain_effects", cake.duplicate(), 0)
+		client._add_shop_item_delta_to_player_run_data(1, cake)
+		check(RunData.get_player_effect(Keys.stat_luck_hash, 0) == host_luck + 3, "native purchase triggers equipped item bonus once")
+		check(RunData.get_player_effect(Keys.stat_luck_hash, 1) == client_luck + 3, "remote shop delta triggers the same bonus once")
 	var file = File.new()
 	file.open(OS.get_environment("BROTATO_TEST_DIR").plus_file("checks.json"), File.WRITE)
 	file.store_string(JSON.print(rows, "  "))

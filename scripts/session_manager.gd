@@ -7632,7 +7632,7 @@ func _prepare_steam_messages_session_with_peer(steam_id: String, reason: String 
 	var connection = _connection_by_peer_key.get(steam_id, {})
 	if typeof(connection) == TYPE_DICTIONARY and connection.get("transport", null) != null and connection.get("transport", null) != _steam_transport:
 		return
-	if _steam == null or steam_id == "" or steam_id == "0" or steam_id == _self_steam_id:
+	if _steam == null or not _valid_steam_member_id(steam_id) or steam_id == _self_steam_id:
 		return
 	if _accepted_p2p_sessions.has(steam_id):
 		return
@@ -7646,7 +7646,7 @@ func _reset_steam_messages_session_with_peer(steam_id: String, reason: String = 
 	var connection = _connection_by_peer_key.get(steam_id, {})
 	if typeof(connection) == TYPE_DICTIONARY and connection.get("transport", null) != null and connection.get("transport", null) != _steam_transport:
 		return
-	if _steam == null or steam_id == "" or steam_id == "0" or steam_id == _self_steam_id:
+	if _steam == null or not _valid_steam_member_id(steam_id) or steam_id == _self_steam_id:
 		return
 	_accepted_p2p_sessions.erase(steam_id)
 	if _steam_has_method("closeSessionWithUser"):
@@ -7660,7 +7660,7 @@ func _send_p2p_json(target_steam_id: String, message: Dictionary, reliable: bool
 	if target_steam_id == "" or target_steam_id == "0":
 		return false
 
-	if not _connection_by_peer_key.has(target_steam_id) and not _ensure_steam_ready():
+	if not _connection_by_peer_key.has(target_steam_id) and (not _valid_steam_member_id(target_steam_id) or not _ensure_steam_ready()):
 		return false
 
 	_prepare_steam_messages_session_with_peer(target_steam_id, "send")
@@ -7725,7 +7725,7 @@ func _send_transport_payload(target_peer_key: String, payload: PoolByteArray, ch
 				return bool(transport.send_packet_with_flags(connection.get("peer", target_peer_key), payload, channel, send_flags))
 			if transport.has_method("send_packet"):
 				return bool(transport.send_packet(connection.get("peer", target_peer_key), payload, channel, reliable))
-	if _session_remote_peer_keys.has(target_peer_key):
+	if _session_remote_peer_keys.has(target_peer_key) or not _valid_steam_member_id(target_peer_key):
 		return false
 	if _steam_transport != null and _steam_transport.is_available():
 		if _steam_transport.has_method("send_packet_with_flags"):

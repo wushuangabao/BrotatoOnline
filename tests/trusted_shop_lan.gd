@@ -115,8 +115,12 @@ func _run():
 		yield(_wait_file("first-mirrored.json"), "completed")
 		# Delay only the normal owner-state publisher. The start ACK must carry
 		# this final edit through real ENet even though no result packet was sent.
+		if "burned_weapon" in RunData:
+			RunData.get_player_effects(1)[Keys.fog_of_war_permanent_hash] = 1
 		menu._on_client_shop_discard_weapon_pressed(RunData.get_player_weapons(1)[0], 1)
 		_check(RunData.get_player_weapons(1).size() == 1, "recycle applies immediately")
+		if "burned_weapon" in RunData:
+			_check(RunData.get("burned_weapon"), "native recycle sets the shared fog flag")
 		# Controlled personal-state fixture: the handoff must carry more than gear/gold.
 		RunData.players_data[1].current_health = 7
 		RunData.players_data[1].current_level = 4
@@ -129,6 +133,8 @@ func _run():
 	while get_tree().current_scene == null or str(get_tree().current_scene.filename) != "res://main.tscn":
 		yield(get_tree().create_timer(0.1), "timeout")
 	var expected = _read("start-now.json")
+	if "burned_weapon" in RunData:
+		_check(RunData.get("burned_weapon"), "both peers enter battle with the guest's fog exemption")
 	_check(JSON.print(_snapshot()) == JSON.print(expected), "battle starts with the final client-owned weapon and currency")
 	_check(RunData.players_data[1].current_level == 4 and RunData.players_data[1].current_xp == 17 and RunData.players_data[1].meca_parts == 13 and RunData.get_player_effect(Keys.stat_armor_hash, 1) == int(expected.armor), "level, XP, chips and character effects survive the handoff")
 	if role == "client":

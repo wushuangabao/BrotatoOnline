@@ -3312,10 +3312,11 @@ func _apply_shop_inventory_delta_to_run_data(player_index: int, inventory_delta)
 func _add_shop_item_delta_to_player_run_data(player_index: int, item_data) -> void:
 	if item_data == null:
 		return
-	# Use RunData.add_item so remote clients apply the same stat/effect mutation as the Host.
-	# The old append-only path kept the visual list updated but left attributes stale until a
-	# later full RunData repair, which wave 21+ intentionally no longer sends for held items.
 	var item_to_add = item_data.duplicate() if item_data.has_method("duplicate") else item_data
+	# 1.2.0.4 distinguishes a new purchase from restoring an existing inventory.
+	if RunData.has_method("add_item_triggering_stat_gain_effects"):
+		RunData.call("add_item_triggering_stat_gain_effects", item_to_add, player_index)
+		return
 	if RunData.has_method("add_item"):
 		RunData.add_item(item_to_add, player_index, false)
 		return
@@ -9047,6 +9048,7 @@ func _build_run_config_for_scene_sync(include_player_run_data: bool = true, held
 		"current_wave": int(RunData.current_wave),
 		"bonus_gold": int(RunData.bonus_gold),
 		"total_bonus_gold": int(RunData.total_bonus_gold),
+		"burned_weapon": bool(_safe_get(RunData, "burned_weapon", false)),
 		"retries": int(RunData.retries),
 		"full_item_list_for_scene_sync": bool(force_full_held_items),
 		"zone_selected": int(ProgressData.settings.zone_selected),
@@ -9068,6 +9070,8 @@ func _build_run_config_for_scene_sync(include_player_run_data: bool = true, held
 
 
 func _apply_run_config_before_client_scene_change(config: Dictionary, target_screen: String) -> void:
+	if target_screen == SCREEN_GAME and config.has("burned_weapon") and "burned_weapon" in RunData:
+		RunData.set("burned_weapon", bool(config.burned_weapon))
 	if config.has("bonus_gold"):
 		RunData.set_bonus_gold(int(config.bonus_gold))
 	if config.has("total_bonus_gold"):
